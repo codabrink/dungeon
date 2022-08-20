@@ -19,19 +19,18 @@ impl Player {
         mesh: meshes.add(Mesh::from(shape::Cube { size: rad })),
         material: materials.add(Self::material()),
         transform: Transform::from_xyz(0., rad, 0.),
-        ..Default::default()
+        ..default()
       })
       .with_children(|player| {
-        player
-          .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Self::gun_mesh()),
-            material: materials.add(Self::gun_material()),
-            transform: Transform::from_xyz(-1., 0., 0.75),
-            ..Default::default()
-          })
-          .with_children(|gun| {
-            flashlight::Flashlight::setup(gun, meshes);
-          });
+        player.spawn_bundle(PbrBundle {
+          mesh: meshes.add(Self::gun_mesh()),
+          material: materials.add(Self::gun_material()),
+          transform: Transform::from_xyz(-1., 0., 0.75),
+          ..default()
+        });
+      })
+      .with_children(|player| {
+        flashlight::Flashlight::setup(player, meshes, materials);
       })
       .insert(RigidBody::Dynamic)
       .insert(ExternalForce::default())
@@ -74,7 +73,7 @@ impl Player {
     StandardMaterial {
       base_color: Color::rgb(0.0, 1., 0.0),
       unlit: true,
-      ..Default::default()
+      ..default()
     }
   }
 
@@ -93,7 +92,7 @@ impl Player {
     StandardMaterial {
       base_color: Color::rgb(0.5, 0.5, 0.5),
       unlit: true,
-      ..Default::default()
+      ..default()
     }
   }
 }
