@@ -48,8 +48,16 @@ impl Player {
     let down = input.any_pressed([KeyCode::S, KeyCode::Down]);
     let left = input.any_pressed([KeyCode::A, KeyCode::Left]);
     let right = input.any_pressed([KeyCode::D, KeyCode::Right]);
-    let x = -(right as i8) + left as i8;
-    let y = -(down as i8) + up as i8;
+    let x = (-(down as i8) + up as i8) as f32;
+    let z = (-(left as i8) + right as i8) as f32;
+
+    let scale = 5000.;
+    force.force = Vec3::new(x * scale, 0., z * scale);
+
+    let angle = vel.linvel.x.atan2(vel.linvel.z);
+    if !angle.is_nan() {
+      pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+    }
   }
 
   fn material() -> StandardMaterial {
