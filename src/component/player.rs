@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
+mod flashlight;
+
 #[derive(Component)]
 pub struct Player;
 
@@ -19,13 +21,17 @@ impl Player {
         transform: Transform::from_xyz(0., rad, 0.),
         ..Default::default()
       })
-      .with_children(|parent| {
-        parent.spawn_bundle(PbrBundle {
-          mesh: meshes.add(Self::gun_mesh()),
-          material: materials.add(Self::gun_material()),
-          transform: Transform::from_xyz(-1., 0., 0.75),
-          ..Default::default()
-        });
+      .with_children(|player| {
+        player
+          .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Self::gun_mesh()),
+            material: materials.add(Self::gun_material()),
+            transform: Transform::from_xyz(-1., 0., 0.75),
+            ..Default::default()
+          })
+          .with_children(|gun| {
+            flashlight::Flashlight::setup(gun, meshes);
+          });
       })
       .insert(RigidBody::Dynamic)
       .insert(ExternalForce::default())
@@ -43,6 +49,10 @@ impl Player {
     input: Res<Input<KeyCode>>,
     mut query: Query<(&Velocity, &mut ExternalForce, &mut Transform)>,
   ) {
+    if input.pressed(KeyCode::Q) {
+      std::process::exit(1);
+    }
+
     let (vel, mut force, mut pos) = query.single_mut();
     let up = input.any_pressed([KeyCode::W, KeyCode::Up]);
     let down = input.any_pressed([KeyCode::S, KeyCode::Down]);

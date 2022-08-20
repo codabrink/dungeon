@@ -17,7 +17,7 @@ impl Grass {
       base_color_texture: Some(texture_handle.clone()),
       alpha_mode: AlphaMode::Blend,
       reflectance: 0.0,
-      unlit: true,
+      // unlit: true,
       ..Default::default()
     });
 
@@ -27,7 +27,7 @@ impl Grass {
       .spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size })),
         material,
-        transform: Transform::from_xyz(0., 0., 25.),
+        transform: Transform::from_xyz(0., 0., 0.),
         ..Default::default()
       })
       .insert(Self);
