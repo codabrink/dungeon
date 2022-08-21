@@ -13,6 +13,7 @@ pub enum Dir {
 
 use Dir::*;
 const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (0, -1, S), (1, 0, E), (-1, 0, W)];
+pub const SIZE: f32 = 30.;
 
 #[derive(Component, Debug)]
 pub struct Cell {
@@ -28,15 +29,43 @@ impl Cell {
   pub fn adj_empty(&self, builder: &Builder) -> Vec<Coord> {
     let mut empty = Vec::new();
     for (z, x, _) in CARDINAL {
-      let coord = (self.coord.0 + z, self.coord.1 + x);
-      if let None = builder.cells.get(&coord) {
+      let coord = Coord {
+        z: self.coord.z + z,
+        x: self.coord.x + x,
+      };
+      if builder.cells.get(&coord).is_none() {
         empty.push(coord);
       }
     }
     empty
   }
 
-  pub fn fabricate() {}
+  pub fn fabricate(
+    &self,
+    commands: &mut ChildBuilder,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    asset_server: &Res<AssetServer>,
+  ) {
+    let texture = asset_server.load("wood_floor.png");
+    let material = materials.add(StandardMaterial {
+      base_color_texture: Some(texture),
+      alpha_mode: AlphaMode::Blend,
+      unlit: false,
+      ..default()
+    });
+
+    let transform =
+      Transform::from_xyz(self.coord.x as f32 * SIZE, 0.2, self.coord.z as f32 * SIZE);
+
+    commands.spawn_bundle(PbrBundle {
+      mesh: meshes.add(Mesh::from(shape::Plane { size: SIZE })),
+      material,
+      transform,
+      ..default()
+    });
+    // .insert(Self);
+  }
 
   pub fn check_open(list: &mut Vec<Dir>, dir: Dir) {}
 }

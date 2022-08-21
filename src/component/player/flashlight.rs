@@ -11,9 +11,9 @@ impl Flashlight {
   ) {
     const S: f32 = 0.75;
     const S2: f32 = S / 2.;
-    let top = Mesh::from(shape::Box::new(S, 0.1, S));
-    let side = Mesh::from(shape::Box::new(0.1, S, S));
-    let back = Mesh::from(shape::Box::new(S, S, 0.1));
+    let top = Mesh::from(shape::Box::new(S, 0.01, S));
+    let side = Mesh::from(shape::Box::new(0.01, S, S));
+    let back = Mesh::from(shape::Box::new(S, S, 0.01));
     let material = materials.add(StandardMaterial {
       base_color: Color::rgba(0., 0., 0., 0.),
       unlit: true,
