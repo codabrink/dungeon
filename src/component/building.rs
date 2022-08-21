@@ -18,11 +18,20 @@ pub struct Building {
 }
 
 impl Building {
-  pub fn setup(commands: Commands, mut rng: ResMut<GlobalRng>) {
+  pub fn setup(
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+    mut rng: ResMut<GlobalRng>,
+  ) {
     let mut builder = Builder::new();
     for _ in 0..10 {
       builder.insert_random_cell(&mut rng);
     }
+    let mut building = Building {
+      cells: builder.finish(),
+    };
+    building.fabricate(commands, meshes, materials);
   }
 
   fn fabricate(

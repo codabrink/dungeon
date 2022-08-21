@@ -35,5 +35,8 @@ impl Cell {
     }
     empty
   }
+
+  pub fn fabricate() {}
+
   pub fn check_open(list: &mut Vec<Dir>, dir: Dir) {}
 }
