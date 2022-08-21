@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy_turborand = "0.3"
 bevy = { version = "0.8", features = ["dynamic"] }
 bevy_rapier3d = { version = "0.16", features = ["simd-stable", "debug-render"] }
+rand = "0.8"
 
 [profile.dev]
 opt-level = 1
