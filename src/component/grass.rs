@@ -28,7 +28,7 @@ impl Grass {
         mesh: meshes.add(Mesh::from(shape::Plane { size })),
         material,
         transform: Transform::from_xyz(0., 0., 0.),
-        ..Default::default()
+        ..default()
       })
       .insert(Self);
   }

@@ -6,22 +6,14 @@ use std::rc::Rc;
 
 mod cell;
 use cell::*;
+mod wall;
+use wall::*;
 
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub struct Coord {
-  pub x: i16,
-  pub z: i16,
-}
+use crate::CommonMaterials;
 
-impl From<(i16, i16)> for Coord {
-  fn from(c: (i16, i16)) -> Self {
-    Self { x: c.1, z: c.0 }
-  }
-}
-
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Building {
-  cells: HashMap<Coord, Cell>,
+  cells: HashMap<Coord, Entity>,
 }
 
 impl Building {
@@ -31,33 +23,47 @@ impl Building {
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut rng: ResMut<GlobalRng>,
+    common_materials: ResMut<CommonMaterials>,
   ) {
     let mut builder = Builder::new();
     for _ in 0..10 {
       builder.insert_random_cell(&mut rng);
     }
-    let mut building = Building {
-      cells: builder.finish(),
-    };
-    building.fabricate(commands, asset_server, meshes, materials);
+    let cells = builder.finish();
+
+    Self::fabricate(
+      cells,
+      commands,
+      asset_server,
+      meshes,
+      materials,
+      common_materials,
+    );
   }
 
   fn fabricate(
-    &mut self,
+    cells: HashMap<Coord, Cell>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-  ) {
-    commands
-      .spawn()
-      .insert(Transform::from_xyz(0., 0., 0.))
-      .with_children(|b| {
-        for (coord, cell) in &self.cells {
-          println!("Fabricating coord: {:?}", coord);
-          cell.fabricate(b, &mut meshes, &mut materials, &asset_server);
-        }
-      });
+    mut common_materials: ResMut<CommonMaterials>,
+  ) -> Entity {
+    let mut building = Building::default();
+
+    for (coord, cell) in cells {
+      println!("Fabricating coord: {:?}", coord);
+      let entity = cell.fabricate(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        &asset_server,
+        &mut common_materials,
+      );
+      building.cells.insert(coord, entity);
+    }
+
+    commands.spawn().insert(building).id()
   }
 }
 
@@ -65,6 +71,7 @@ impl Building {
 pub struct Builder {
   outer: Vec<Coord>,
   cells: HashMap<Coord, Rc<RefCell<Cell>>>,
+  origin: Vec3,
 }
 impl Builder {
   fn new() -> Self {
@@ -108,5 +115,17 @@ impl Builder {
       output.insert(coord, cell.into_inner());
     }
     output
+  }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, Default)]
+pub struct Coord {
+  pub x: i16,
+  pub z: i16,
+}
+
+impl From<(i16, i16)> for Coord {
+  fn from(c: (i16, i16)) -> Self {
+    Self { x: c.1, z: c.0 }
   }
 }

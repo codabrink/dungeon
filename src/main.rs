@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
 
@@ -6,6 +6,7 @@ mod component;
 
 fn main() {
   App::new()
+    .insert_resource(CommonMaterials::default())
     .add_plugin(RngPlugin::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
@@ -17,3 +18,5 @@ fn main() {
     .add_system(component::Player::update)
     .run();
 }
+
+pub type CommonMaterials = HashMap<String, Handle<StandardMaterial>>;
