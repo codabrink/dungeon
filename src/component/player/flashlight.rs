@@ -25,7 +25,7 @@ impl Flashlight {
       // top
       .insert_bundle(PbrBundle {
         mesh: meshes.add(top.clone()),
-        transform: Transform::from_xyz(0., -0.5, 0.95),
+        transform: Transform::from_xyz(0.5, -0.5, 0.95),
         material: material.clone(),
         ..default()
       })

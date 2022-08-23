@@ -39,7 +39,7 @@ impl Cell {
       wall_state: [
         wall::State::None,
         wall::State::Wall,
-        wall::State::Wall,
+        wall::State::Door,
         wall::State::None,
       ],
       ..default()
@@ -84,18 +84,13 @@ impl Cell {
     // println!("Floor transform: {:?}", &transform);
 
     for i in 0..4 {
-      match self.wall_state[i] {
-        wall::State::Wall => {
-          let w = WALL[i];
-          Wall::build(w[0] + translation, w[1] + translation).fabricate(
-            commands,
-            meshes,
-            materials,
-            asset_server,
-          );
-        }
-        _ => {}
-      }
+      let w = WALL[i];
+      Wall::build(w[0] + translation, w[1] + translation, self.wall_state[i]).fabricate(
+        commands,
+        meshes,
+        materials,
+        asset_server,
+      );
     }
 
     commands
