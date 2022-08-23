@@ -39,7 +39,7 @@ impl Player {
         linear_damping: 0.5,
         angular_damping: 1.,
       })
-      .insert(GravityScale(0.))
+      // .insert(GravityScale(0.))
       .insert(Collider::cuboid(rad, rad, rad))
       .insert(Self);
   }
@@ -63,9 +63,12 @@ impl Player {
     let scale = 5000.;
     force.force = Vec3::new(x * scale, 0., z * scale);
 
-    let angle = vel.linvel.x.atan2(vel.linvel.z);
-    if !angle.is_nan() {
-      pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+    if vel.linvel.length() > 1. {
+      let angle = vel.linvel.x.atan2(vel.linvel.z);
+      if !angle.is_nan() {
+        pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+        // pos.translation.y = 2.;
+      }
     }
   }
 

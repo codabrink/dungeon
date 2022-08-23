@@ -1,9 +1,9 @@
 use super::cell::D;
-use bevy::{ecs::system::EntityCommands, prelude::*};
-use bevy_rapier3d::prelude::*;
+use bevy::prelude::*;
+use bevy_rapier3d::{prelude::*, rapier::prelude::RigidBodyBuilder};
 
 const W: f32 = 0.1;
-const DOOR_WIDTH: f32 = 10.;
+const DOOR_WIDTH: f32 = 8.;
 #[derive(Component)]
 pub struct Wall {
   len: f32,
@@ -28,7 +28,7 @@ impl Wall {
   }
 
   pub fn fabricate(
-    mut self,
+    self,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -59,6 +59,11 @@ impl Wall {
 
         if let Some(collider) = collider {
           entity.insert(collider);
+          // .insert(RigidBody::Dynamic)
+          // .insert(Sleeping {
+          // sleeping: true,
+          // ..default()
+          // });q
         }
       });
     }
@@ -105,7 +110,12 @@ impl Wall {
     // right side
     let transform =
       Transform::from_translation(Vec3::new(0., D / 4., width / 2. + DOOR_WIDTH / 2.));
-    result.push((mesh, transform, material, Some(collider)));
+    result.push((mesh, transform, material.clone(), Some(collider)));
+
+    // above door
+    let mesh = Mesh::from(shape::Box::new(W, D / 8., DOOR_WIDTH));
+    let transform = Transform::from_translation(Vec3::new(0., D * (7. / 16.), 0.));
+    result.push((mesh, transform, material, None));
 
     result
   }

@@ -1,19 +1,18 @@
-use bevy::prelude::*;
-use bevy_turborand::*;
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use crate::*;
 
 mod cell;
 use cell::*;
 mod wall;
 use wall::*;
+mod room;
+use room::*;
 
 use crate::CommonMaterials;
 
 #[derive(Component, Default)]
 pub struct Building {
   cells: HashMap<Coord, Entity>,
+  rooms: HashSet<Arc<Room>>,
 }
 
 impl Building {
@@ -26,7 +25,7 @@ impl Building {
     common_materials: ResMut<CommonMaterials>,
   ) {
     let mut builder = Builder::new();
-    for _ in 0..10 {
+    for _ in 0..100 {
       builder.insert_random_cell(&mut rng);
     }
     let cells = builder.finish();

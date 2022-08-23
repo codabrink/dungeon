@@ -1,8 +1,5 @@
-use super::wall::{self, Wall};
-use super::{Builder, Building, Coord};
-use crate::CommonMaterials;
-use bevy::prelude::*;
-use std::{cell::RefCell, rc::Rc};
+use super::{wall, Builder, Coord, Room, Wall};
+use crate::*;
 
 #[derive(Debug)]
 pub enum Dir {
@@ -25,6 +22,7 @@ const WALL: [[Vec3; 2]; 4] = [
 
 #[derive(Component, Debug, Default)]
 pub struct Cell {
+  pub room: Arc<Room>,
   pub coord: Coord,
   origin: Vec3,
   pub wall_state: [wall::State; 4],
@@ -38,7 +36,7 @@ impl Cell {
       origin: building.origin,
       wall_state: [
         wall::State::None,
-        wall::State::Wall,
+        wall::State::Door,
         wall::State::Door,
         wall::State::None,
       ],
@@ -93,31 +91,20 @@ impl Cell {
       );
     }
 
+    let mesh = Mesh::from(shape::Plane { size: D });
+    let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
+      .expect("Could not create floor collider from mesh.");
+
     commands
       .spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: D })),
+        mesh: meshes.add(mesh),
         material,
         transform,
         ..default()
       })
+      .insert(collider)
       .insert(self)
       .id()
-    // .with_children(|builder| {
-    //   builder.spawn_bundle(PbrBundle {
-    //     mesh: meshes.add(Mesh::from(shape::Box::new(0.1, D, D))),
-    //     // material: wall_texture.clone(),
-    //     transform: Transform::from_xyz(-D / 2., D / 2., 0.),
-    //     ..default()
-    //   });
-    // })
-    // .with_children(|builder| {
-    //   builder.spawn_bundle(PbrBundle {
-    //     mesh: meshes.add(Mesh::from(shape::Box::new(D, D, 0.1))),
-    //     // material: wall_texture.clone(),
-    //     transform: Transform::from_xyz(0., D / 2., D / 2.),
-    //     ..default()
-    //   });
-    // });
   }
 
   fn fabricate_walls(&self, commands: &mut Commands) {}
