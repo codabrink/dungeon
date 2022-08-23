@@ -3,7 +3,7 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 const W: f32 = 0.1;
-const DOOR_WIDTH: f32 = 1.;
+const DOOR_WIDTH: f32 = 10.;
 #[derive(Component)]
 pub struct Wall {
   len: f32,
@@ -34,75 +34,80 @@ impl Wall {
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
   ) -> Option<Entity> {
-    let (mut ec, cols) = match self.state {
-      State::Wall => self.fabricate_wall(commands, meshes, materials),
-      State::Door => self.fabricate_door(commands, meshes, materials),
-      _ => return None,
+    let result = match self.state {
+      State::Wall => self.fabricate_wall(),
+      State::Door => self.fabricate_door(),
+      _ => vec![],
     };
 
-    let ec = ec.insert(self);
-    for col in cols {
-      ec.insert(col);
+    let mut entity = commands.spawn();
+    let ec = entity
+      .insert_bundle(PbrBundle {
+        transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
+        ..default()
+      })
+      .insert(self);
+
+    for (mesh, transform, material, collider) in result {
+      ec.with_children(|builder| {
+        let mut entity = builder.spawn_bundle(PbrBundle {
+          mesh: meshes.add(mesh),
+          transform,
+          material: materials.add(material),
+          ..default()
+        });
+
+        if let Some(collider) = collider {
+          entity.insert(collider);
+        }
+      });
     }
 
     Some(ec.id())
   }
 
-  fn fabricate_wall<'w, 's, 'a>(
-    &mut self,
-    commands: &'a mut Commands<'w, 's>,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-  ) -> (EntityCommands<'w, 's, 'a>, Vec<Collider>) {
+  fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
     let mesh = Mesh::from(shape::Box::new(0.1, D / 2., self.len));
     let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
       .expect("Could not create wall collider from mesh.");
 
-    self.translation += Vec3::new(0., D / 4., 0.);
+    let transform = Transform::from_translation(Vec3::new(0., D / 4., 0.));
 
-    let ec = commands.spawn_bundle(PbrBundle {
-      mesh: meshes.add(mesh),
-      transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
-      material: materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        ..default()
-      }),
+    let material = StandardMaterial {
+      base_color: Color::WHITE,
       ..default()
-    });
+    };
 
-    (ec, vec![collider])
+    vec![(mesh, transform, material, Some(collider))]
   }
 
-  fn fabricate_door<'w, 's, 'a>(
-    &self,
-    commands: &'a mut Commands<'w, 's>,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-  ) -> (EntityCommands<'w, 's, 'a>, Vec<Collider>) {
-    let mesh = Mesh::from(shape::Box {
-      min_x: -W / 2.,
-      max_x: W / 2.,
-      min_y: 0.,
-      max_y: D / 2.,
-      min_z: -DOOR_WIDTH / 2.,
-      max_z: self.len / 2.,
-    });
+  fn fabricate_door(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
+    let mut result = vec![];
+    let width = self.len / 2. - DOOR_WIDTH / 2.;
+    let mesh = Mesh::from(shape::Box::new(W, D / 2., width));
 
-    println!("Box?: {:?}", shape::Box::new(0.1, D / 2., self.len));
+    // left side
     let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
       .expect("Could not create wall collider from mesh.");
-
-    let ec = commands.spawn_bundle(PbrBundle {
-      mesh: meshes.add(mesh),
-      transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
-      material: materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        ..default()
-      }),
+    let transform =
+      Transform::from_translation(Vec3::new(0., D / 4., -(width / 2. + DOOR_WIDTH / 2.)));
+    let material = StandardMaterial {
+      base_color: Color::WHITE,
       ..default()
-    });
+    };
+    result.push((
+      mesh.clone(),
+      transform,
+      material.clone(),
+      Some(collider.clone()),
+    ));
 
-    (ec, vec![collider])
+    // right side
+    let transform =
+      Transform::from_translation(Vec3::new(0., D / 4., width / 2. + DOOR_WIDTH / 2.));
+    result.push((mesh, transform, material, Some(collider)));
+
+    result
   }
 }
 
