@@ -3,16 +3,17 @@ use crate::*;
 mod cell;
 use cell::*;
 mod wall;
+use rand::{seq::SliceRandom, thread_rng};
 use wall::*;
 mod room;
 use room::*;
 
 use crate::CommonMaterials;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct Building {
-  cells: HashMap<Coord, Entity>,
-  rooms: HashSet<Arc<Room>>,
+  cells: Mutex<HashMap<Coord, Entity>>,
+  rooms: Mutex<HashSet<Arc<Room>>>,
 }
 
 impl Building {
@@ -25,9 +26,10 @@ impl Building {
     common_materials: ResMut<CommonMaterials>,
   ) {
     let mut builder = Builder::new();
-    for _ in 0..100 {
+    for _ in 0..10 {
       builder.insert_random_cell(&mut rng);
     }
+    builder.build_rooms();
     let cells = builder.finish();
 
     Self::fabricate(
@@ -48,10 +50,14 @@ impl Building {
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut common_materials: ResMut<CommonMaterials>,
   ) -> Entity {
-    let mut building = Building::default();
+    let building = Building::default();
+    let mut building_cells = building.cells.lock();
 
     for (coord, cell) in cells {
       println!("Fabricating coord: {:?}", coord);
+
+      let cell = cell.arc();
+
       let entity = cell.fabricate(
         &mut commands,
         &mut meshes,
@@ -59,8 +65,10 @@ impl Building {
         &asset_server,
         &mut common_materials,
       );
-      building.cells.insert(coord, entity);
+      building_cells.insert(coord, entity);
     }
+
+    drop(building_cells);
 
     commands.spawn().insert(building).id()
   }
@@ -71,6 +79,7 @@ pub struct Builder {
   outer: Vec<Coord>,
   cells: HashMap<Coord, Rc<RefCell<Cell>>>,
   origin: Vec3,
+  building: Arc<Building>,
 }
 impl Builder {
   fn new() -> Self {
@@ -107,6 +116,18 @@ impl Builder {
     // println!("============Rebuilt============");
   }
 
+  fn build_rooms(&mut self) {
+    for (coord, cell) in &self.cells {
+      {
+        if cell.borrow().room.is_some() {
+          continue;
+        }
+      }
+
+      ArcRoom::create().fill(coord, self);
+    }
+  }
+
   fn finish(&mut self) -> HashMap<Coord, Cell> {
     let mut output = HashMap::new();
     for (coord, cell) in self.cells.drain() {
@@ -121,6 +142,22 @@ impl Builder {
 pub struct Coord {
   pub x: i16,
   pub z: i16,
+}
+
+impl Coord {
+  fn adj_rand(&self) -> Vec<Self> {
+    let mut result = Vec::with_capacity(4);
+
+    for (z, x, _) in CARDINAL {
+      result.push(Self {
+        z: self.z + z,
+        x: self.x + x,
+      });
+    }
+
+    result.shuffle(&mut thread_rng());
+    result
+  }
 }
 
 impl From<(i16, i16)> for Coord {

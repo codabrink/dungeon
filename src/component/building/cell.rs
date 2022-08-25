@@ -1,4 +1,4 @@
-use super::{wall, Builder, Coord, Room, Wall};
+use super::{room::ArcRoom, wall, Builder, Building, Coord, Room, Wall};
 use crate::*;
 
 #[derive(Debug)]
@@ -9,10 +9,11 @@ pub enum Dir {
   W,
 }
 
+use rand::{seq::SliceRandom, thread_rng};
 use Dir::*;
 pub const D: f32 = 30.;
 const D2: f32 = D / 2.;
-const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (0, -1, S), (1, 0, E), (-1, 0, W)];
+pub const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (0, -1, S), (1, 0, E), (-1, 0, W)];
 const WALL: [[Vec3; 2]; 4] = [
   [Vec3::new(D2, 0., -D2), Vec3::new(D2, 0., D2)],
   [Vec3::new(D2, 0., D2), Vec3::new(-D2, 0., D2)],
@@ -20,47 +21,98 @@ const WALL: [[Vec3; 2]; 4] = [
   [Vec3::new(-D2, 0., -D2), Vec3::new(D2, 0., -D2)],
 ];
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug)]
 pub struct Cell {
-  pub room: Arc<Room>,
+  pub building: Arc<Building>,
+  pub room: Option<ArcRoom>,
   pub coord: Coord,
-  origin: Vec3,
   pub wall_state: [wall::State; 4],
   pub walls: [Option<Entity>; 4],
+  pub entity: Option<Entity>,
+  origin: Vec3,
+}
+
+#[derive(Component)]
+pub struct CellComponent {
+  cell: Arc<Cell>,
 }
 
 impl Cell {
-  pub fn new(coord: Coord, building: &Builder) -> Rc<RefCell<Self>> {
+  pub fn new(coord: Coord, builder: &Builder) -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
       coord,
-      origin: building.origin,
-      wall_state: [
-        wall::State::None,
-        wall::State::Door,
-        wall::State::Door,
-        wall::State::None,
-      ],
-      ..default()
+      origin: builder.origin,
+      building: builder.building.clone(),
+      wall_state: [wall::State::Door; 4],
+      walls: [None; 4],
+      entity: None,
+      room: None,
     }))
+  }
+
+  pub fn arc(self) -> ArcCell {
+    Arc::new(self)
+  }
+
+  fn adj(&self) -> Vec<Coord> {
+    let mut result = Vec::with_capacity(4);
+    for (z, x, _) in CARDINAL {
+      result.push(Coord {
+        z: self.coord.z + z,
+        x: self.coord.x + x,
+      });
+    }
+    result
   }
 
   /// returns a list of adjacent coordinates that are blank
   pub fn adj_empty(&self, builder: &Builder) -> Vec<Coord> {
-    let mut empty = Vec::new();
-    for (z, x, _) in CARDINAL {
-      let coord = Coord {
-        z: self.coord.z + z,
-        x: self.coord.x + x,
-      };
-      if builder.cells.get(&coord).is_none() {
-        empty.push(coord);
-      }
-    }
-    empty
+    self
+      .adj()
+      .into_iter()
+      .filter(|adj| builder.cells.get(adj).is_none())
+      .collect()
   }
 
-  pub fn fabricate(
-    self,
+  pub fn adj_unroomed(&self, builder: &Builder) -> Vec<Coord> {
+    self
+      .adj()
+      .into_iter()
+      .filter(|adj| {
+        if let Some(cell) = builder.cells.get(adj) {
+          return cell.borrow().room.is_none();
+        }
+        false
+      })
+      .collect()
+  }
+
+  pub fn adj_empty_shuffled(&self, builder: &Builder) -> Vec<Coord> {
+    let mut result = self.adj_empty(builder);
+    result.shuffle(&mut thread_rng());
+    result
+  }
+
+  fn fabricate_walls(&self, commands: &mut Commands) {}
+
+  pub fn check_open(list: &mut Vec<Dir>, dir: Dir) {}
+}
+
+pub type ArcCell = Arc<Cell>;
+pub trait ArcCellExt {
+  fn fabricate(
+    &self,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    asset_server: &Res<AssetServer>,
+    common_materials: &mut ResMut<CommonMaterials>,
+  ) -> Entity;
+}
+
+impl ArcCellExt for ArcCell {
+  fn fabricate(
+    &self,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -80,6 +132,8 @@ impl Cell {
     let transform = Transform::from_translation(translation);
 
     // println!("Floor transform: {:?}", &transform);
+
+    for (i, (z, x, _)) in CARDINAL.iter().enumerate() {}
 
     for i in 0..4 {
       let w = WALL[i];
@@ -103,11 +157,7 @@ impl Cell {
         ..default()
       })
       .insert(collider)
-      .insert(self)
+      .insert(CellComponent { cell: self.clone() })
       .id()
   }
-
-  fn fabricate_walls(&self, commands: &mut Commands) {}
-
-  pub fn check_open(list: &mut Vec<Dir>, dir: Dir) {}
 }
