@@ -1366,6 +1366,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "bevy_turborand",
+ "lazy_static",
  "parking_lot 0.12.1",
  "rand",
 ]

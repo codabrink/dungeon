@@ -4,7 +4,9 @@ use bevy_rapier3d::prelude::*;
 mod flashlight;
 
 #[derive(Component)]
-pub struct Player;
+pub struct Player {
+  pub angle: f32,
+}
 
 impl Player {
   pub fn setup(
@@ -41,18 +43,18 @@ impl Player {
       })
       // .insert(GravityScale(0.))
       .insert(Collider::cuboid(rad, rad, rad))
-      .insert(Self);
+      .insert(Self { angle: 0. });
   }
 
   pub fn update(
     input: Res<Input<KeyCode>>,
-    mut query: Query<(&Velocity, &mut ExternalForce, &mut Transform)>,
+    mut query: Query<(&Velocity, &mut ExternalForce, &mut Transform, &mut Player)>,
   ) {
     if input.pressed(KeyCode::Q) {
       std::process::exit(1);
     }
 
-    let (vel, mut force, mut pos) = query.single_mut();
+    let (vel, mut force, mut pos, mut player) = query.single_mut();
     let up = input.any_pressed([KeyCode::W, KeyCode::Up]);
     let down = input.any_pressed([KeyCode::S, KeyCode::Down]);
     let left = input.any_pressed([KeyCode::A, KeyCode::Left]);
@@ -66,8 +68,8 @@ impl Player {
     if vel.linvel.length() > 1. {
       let angle = vel.linvel.x.atan2(vel.linvel.z);
       if !angle.is_nan() {
+        player.angle = angle;
         pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
-        // pos.translation.y = 2.;
       }
     }
   }

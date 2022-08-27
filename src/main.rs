@@ -23,6 +23,8 @@ fn main() {
     .add_startup_system(component::Building::setup)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
+    .add_system(component::Bullet::spawn)
+    .add_system(component::Bullet::despawn)
     .run();
 }
 

@@ -11,6 +11,7 @@ bevy = { version = "0.8", features = ["dynamic"] }
 bevy_rapier3d = { version = "0.16", features = ["simd-stable", "debug-render"] }
 rand = "0.8"
 parking_lot = "0.12"
+lazy_static = "1"
 
 [profile.dev]
 opt-level = 1
