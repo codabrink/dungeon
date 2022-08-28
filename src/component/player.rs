@@ -42,19 +42,24 @@ impl Player {
         angular_damping: 1.,
       })
       // .insert(GravityScale(0.))
-      .insert(Collider::cuboid(rad, rad, rad))
+      .insert(Collider::cuboid(rad / 2., rad / 2., rad / 2.))
+      .insert(Restitution {
+        coefficient: 0.,
+        combine_rule: CoefficientCombineRule::Min,
+      })
       .insert(Self { angle: 0. });
   }
 
   pub fn update(
     input: Res<Input<KeyCode>>,
+    window: Res<Windows>,
     mut query: Query<(&Velocity, &mut ExternalForce, &mut Transform, &mut Player)>,
   ) {
     if input.pressed(KeyCode::Q) {
       std::process::exit(1);
     }
 
-    let (vel, mut force, mut pos, mut player) = query.single_mut();
+    let (_vel, mut force, mut pos, mut player) = query.single_mut();
     let up = input.any_pressed([KeyCode::W, KeyCode::Up]);
     let down = input.any_pressed([KeyCode::S, KeyCode::Down]);
     let left = input.any_pressed([KeyCode::A, KeyCode::Left]);
@@ -62,16 +67,28 @@ impl Player {
     let x = (-(down as i8) + up as i8) as f32;
     let z = (-(left as i8) + right as i8) as f32;
 
-    let scale = 5000.;
+    let scale = 1000.;
     force.force = Vec3::new(x * scale, 0., z * scale);
 
+    let window = window.get_primary().unwrap();
+    if let Some(cur_pos) = window.cursor_position() {
+      let cx = window.width() / 2.;
+      let cy = window.height() / 2.;
+
+      let angle = (cur_pos.y - cy).atan2(cur_pos.x - cx);
+      player.angle = angle;
+      pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+    }
+  }
+
+  fn angle_from_velocity(vel: &Velocity) -> Option<f32> {
     if vel.linvel.length() > 1. {
       let angle = vel.linvel.x.atan2(vel.linvel.z);
       if !angle.is_nan() {
-        player.angle = angle;
-        pos.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+        return Some(angle);
       }
     }
+    None
   }
 
   fn material() -> StandardMaterial {

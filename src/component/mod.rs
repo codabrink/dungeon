@@ -8,3 +8,5 @@ pub mod building;
 pub use building::Building;
 pub mod bullet;
 pub use bullet::Bullet;
+pub mod tree;
+pub use tree::Tree;

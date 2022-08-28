@@ -1,8 +1,8 @@
 use super::cell::D;
 use bevy::prelude::*;
-use bevy_rapier3d::{prelude::*, rapier::prelude::RigidBodyBuilder};
+use bevy_rapier3d::prelude::*;
 
-const W: f32 = 0.1;
+const W: f32 = 0.5;
 const DOOR_WIDTH: f32 = 8.;
 #[derive(Component)]
 pub struct Wall {
@@ -35,7 +35,7 @@ impl Wall {
     asset_server: &Res<AssetServer>,
   ) -> Option<Entity> {
     let result = match self.state {
-      State::Wall => self.fabricate_wall(),
+      State::Solid => self.fabricate_wall(),
       State::Door => self.fabricate_door(),
       _ => vec![],
     };
@@ -73,8 +73,7 @@ impl Wall {
 
   fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
     let mesh = Mesh::from(shape::Box::new(0.1, D / 2., self.len));
-    let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
-      .expect("Could not create wall collider from mesh.");
+    let collider = Collider::cuboid(W, D / 4., self.len / 2.);
 
     let transform = Transform::from_translation(Vec3::new(0., D / 4., 0.));
 
@@ -92,8 +91,7 @@ impl Wall {
     let mesh = Mesh::from(shape::Box::new(W, D / 2., width));
 
     // left side
-    let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
-      .expect("Could not create wall collider from mesh.");
+    let collider = Collider::cuboid(W, D / 4., width / 2.);
     let transform =
       Transform::from_translation(Vec3::new(0., D / 4., -(width / 2. + DOOR_WIDTH / 2.)));
     let material = StandardMaterial {
@@ -125,7 +123,7 @@ impl Wall {
 pub enum State {
   #[default]
   None,
-  Wall,
+  Solid,
   Door,
   Window,
 }

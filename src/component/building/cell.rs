@@ -43,14 +43,28 @@ impl Cell {
       coord,
       origin: builder.origin,
       building: builder.building.clone(),
-      wall_state: [wall::State::Door; 4],
+      wall_state: [wall::State::Solid; 4],
       walls: [None; 4],
       entity: None,
       room: None,
     }))
   }
 
-  pub fn arc(self) -> ArcCell {
+  pub fn finish(mut self) -> ArcCell {
+    for (i, coord) in self.adj().iter().enumerate() {
+      match self.building.cells.read().get(coord) {
+        Some(cell) => {
+          if cell.room.as_ref().unwrap().id == self.room.as_ref().unwrap().id {
+            self.wall_state[i] = wall::State::None;
+          } else {
+            self.wall_state[i] = wall::State::Solid;
+          }
+        }
+        None => {
+          self.wall_state[i] = wall::State::Solid;
+        }
+      }
+    }
     Arc::new(self)
   }
 
@@ -146,8 +160,7 @@ impl ArcCellExt for ArcCell {
     }
 
     let mesh = Mesh::from(shape::Plane { size: D });
-    let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh)
-      .expect("Could not create floor collider from mesh.");
+    let collider = Collider::cuboid(D / 2., 0.1, D / 2.);
 
     commands
       .spawn_bundle(PbrBundle {

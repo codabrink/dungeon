@@ -13,6 +13,7 @@ const RAD: f32 = 0.5;
 impl Bullet {
   pub fn spawn(
     input: Res<Input<KeyCode>>,
+    mouse: Res<Input<MouseButton>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -21,7 +22,7 @@ impl Bullet {
     let (t, player) = query.single();
     let theta = player.angle;
 
-    if !input.just_pressed(KeyCode::Space) {
+    if !input.just_pressed(KeyCode::Space) && !mouse.just_pressed(MouseButton::Left) {
       return;
     }
     let translation = Vec3::new(2. * theta.sin(), 0., 2. * theta.cos());
@@ -41,6 +42,9 @@ impl Bullet {
       .insert(collider)
       .insert(Bullet {
         created_at: Instant::now(),
+      })
+      .with_children(|cb| {
+        cb.spawn_bundle(PointLightBundle { ..default() });
       });
   }
 
@@ -48,7 +52,7 @@ impl Bullet {
     let now = Instant::now();
     for (e, bullet) in query.iter() {
       if now.duration_since(bullet.created_at) > Duration::from_secs(1) {
-        commands.entity(e).despawn();
+        commands.entity(e).despawn_recursive();
       }
     }
   }

@@ -12,7 +12,7 @@ use crate::CommonMaterials;
 
 #[derive(Component, Default, Debug)]
 pub struct Building {
-  cells: Mutex<HashMap<Coord, Entity>>,
+  cells: RwLock<HashMap<Coord, Arc<Cell>>>,
   rooms: Mutex<HashSet<Arc<Room>>>,
 }
 
@@ -26,7 +26,7 @@ impl Building {
     common_materials: ResMut<CommonMaterials>,
   ) {
     let mut builder = Builder::new();
-    for _ in 0..10 {
+    for _ in 0..20 {
       builder.insert_random_cell(&mut rng);
     }
     builder.build_rooms();
@@ -51,21 +51,21 @@ impl Building {
     mut common_materials: ResMut<CommonMaterials>,
   ) -> Entity {
     let building = Building::default();
-    let mut building_cells = building.cells.lock();
+    let mut building_cells = building.cells.write();
 
     for (coord, cell) in cells {
       println!("Fabricating coord: {:?}", coord);
 
-      let cell = cell.arc();
+      let cell = cell.finish();
 
-      let entity = cell.fabricate(
+      cell.fabricate(
         &mut commands,
         &mut meshes,
         &mut materials,
         &asset_server,
         &mut common_materials,
       );
-      building_cells.insert(coord, entity);
+      building_cells.insert(coord, cell);
     }
 
     drop(building_cells);

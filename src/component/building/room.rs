@@ -5,10 +5,22 @@ use crate::*;
 
 pub const MAX_SIZE: usize = 7;
 
-#[derive(Debug, Default)]
+static RoomCount: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug)]
 pub struct Room {
+  pub id: usize,
   cells: Mutex<HashSet<Coord>>,
   size: usize,
+}
+
+impl Default for Room {
+  fn default() -> Self {
+    Self {
+      id: RoomCount.fetch_add(1, Ordering::SeqCst),
+      ..default()
+    }
+  }
 }
 
 impl Room {
