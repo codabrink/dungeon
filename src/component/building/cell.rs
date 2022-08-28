@@ -1,4 +1,4 @@
-use super::{room::ArcRoom, wall, Builder, Building, Coord, Room, Wall};
+use super::{wall, Building, Coord, Room, Wall};
 use crate::*;
 
 #[derive(Debug)]
@@ -23,13 +23,12 @@ const WALL: [[Vec3; 2]; 4] = [
 
 #[derive(Debug)]
 pub struct Cell {
-  pub building: Arc<Building>,
-  pub room: Option<ArcRoom>,
   pub coord: Coord,
   pub wall_state: [wall::State; 4],
   pub walls: [Option<Entity>; 4],
   pub entity: Option<Entity>,
   origin: Vec3,
+  pub room: usize,
 }
 
 #[derive(Component)]
@@ -38,15 +37,13 @@ pub struct CellComponent {
 }
 
 impl Cell {
-  pub fn new(coord: Coord, builder: &Builder) -> Rc<RefCell<Self>> {
+  pub fn new(coord: Coord, builder: &Building) -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
       coord,
       origin: builder.origin,
-      building: builder.building.clone(),
       wall_state: [wall::State::Solid; 4],
       walls: [None; 4],
       entity: None,
-      room: None,
     }))
   }
 
@@ -54,6 +51,7 @@ impl Cell {
     for (i, coord) in self.adj().iter().enumerate() {
       match self.building.cells.read().get(coord) {
         Some(cell) => {
+          println!("Here?");
           if cell.room.as_ref().unwrap().id == self.room.as_ref().unwrap().id {
             self.wall_state[i] = wall::State::None;
           } else {

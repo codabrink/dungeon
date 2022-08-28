@@ -10,12 +10,6 @@ use room::*;
 
 use crate::CommonMaterials;
 
-#[derive(Component, Default, Debug)]
-pub struct Building {
-  cells: RwLock<HashMap<Coord, Arc<Cell>>>,
-  rooms: Mutex<HashSet<Arc<Room>>>,
-}
-
 impl Building {
   pub fn setup(
     commands: Commands,
@@ -25,7 +19,7 @@ impl Building {
     mut rng: ResMut<GlobalRng>,
     common_materials: ResMut<CommonMaterials>,
   ) {
-    let mut builder = Builder::new();
+    let mut builder = Building::new();
     for _ in 0..20 {
       builder.insert_random_cell(&mut rng);
     }
@@ -74,10 +68,10 @@ impl Building {
   }
 }
 
-#[derive(Default)]
-pub struct Builder {
+#[derive(Default, Component)]
+pub struct Building {
   outer: Vec<Coord>,
-  cells: HashMap<Coord, Rc<RefCell<Cell>>>,
+  cells: HashMap<Coord, Arc<Mutex<Cell>>>,
   origin: Vec3,
   building: Arc<Building>,
 }
@@ -128,13 +122,14 @@ impl Builder {
     }
   }
 
-  fn finish(&mut self) -> HashMap<Coord, Cell> {
-    let mut output = HashMap::new();
+  fn finish(&mut self) -> Building {
+    let mut cells = HashMap::new();
     for (coord, cell) in self.cells.drain() {
       let cell = Rc::try_unwrap(cell).expect("Something else is holding a ref of this cell.");
-      output.insert(coord, cell.into_inner());
+      cells.insert(coord, cell.into_inner());
     }
-    output
+
+    Building { cells, rooms }
   }
 }
 
@@ -145,18 +140,21 @@ pub struct Coord {
 }
 
 impl Coord {
-  fn adj_rand(&self) -> Vec<Self> {
-    let mut result = Vec::with_capacity(4);
-
+  fn adj(&self) -> Vec<Self> {
+    let mut adj = Vec::with_capacity(4);
     for (z, x, _) in CARDINAL {
-      result.push(Self {
+      adj.push(Self {
         z: self.z + z,
         x: self.x + x,
       });
     }
+    adj
+  }
 
-    result.shuffle(&mut thread_rng());
-    result
+  fn adj_rand(&self) -> Vec<Self> {
+    let mut adj = self.adj();
+    adj.shuffle(&mut thread_rng());
+    adj
   }
 }
 

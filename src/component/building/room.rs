@@ -1,11 +1,11 @@
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::{thread_rng, Rng};
 
-use super::{Builder, Coord};
+use super::{cell::Cell, wall, Coord};
 use crate::*;
 
 pub const MAX_SIZE: usize = 7;
 
-static RoomCount: AtomicUsize = AtomicUsize::new(0);
+static ROOM_COUNT: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug)]
 pub struct Room {
@@ -17,8 +17,9 @@ pub struct Room {
 impl Default for Room {
   fn default() -> Self {
     Self {
-      id: RoomCount.fetch_add(1, Ordering::SeqCst),
-      ..default()
+      id: ROOM_COUNT.fetch_add(1, Ordering::SeqCst),
+      cells: Mutex::default(),
+      size: 0,
     }
   }
 }
@@ -39,6 +40,7 @@ pub trait ArcRoomExt {
   fn add_cell(&self, coord: &Coord, builder: &Builder) -> bool;
   fn adj_unroomed_cells(&self, builder: &Builder) -> Vec<Coord>;
   fn random_adj_unroomed_cell(&self, builder: &Builder) -> Option<Coord>;
+  fn cell_room_undivide(cell: &Rc<RefCell<Cell>>, builder: &Builder);
 }
 
 impl ArcRoomExt for ArcRoom {
@@ -69,6 +71,24 @@ impl ArcRoomExt for ArcRoom {
 
       if self.len() >= self.size {
         break;
+      }
+    }
+
+    for coord in &*self.cells.lock() {
+      if let Some(cell) = builder.cells.get(coord) {
+        Self::cell_room_undivide(cell, builder);
+      }
+    }
+  }
+
+  fn cell_room_undivide(cell: &Rc<RefCell<Cell>>, builder: &Builder) {
+    let mut cell = cell.borrow_mut();
+    for (i, coord) in cell.coord.adj().iter().enumerate() {
+      if let Some(adj_cell) = builder.cells.get(coord) {
+        match (cell.room, adj_cell.borrow().room) {
+          (Some(r), Some(or)) if r.id == or.id => cell.wall_state[i] = wall::State::None,
+          _ => {}
+        }
       }
     }
   }
