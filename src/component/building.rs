@@ -3,6 +3,7 @@ use crate::*;
 mod cell;
 use cell::*;
 mod wall;
+use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng};
 use wall::*;
 mod room;
@@ -10,153 +11,103 @@ use room::*;
 
 use crate::CommonMaterials;
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default)]
 pub struct Building {
-  cells: RwLock<HashMap<Coord, Arc<Cell>>>,
-  rooms: Mutex<HashSet<Arc<Room>>>,
+  cells: HashMap<Coord, Arc<Cell>>,
+  rooms: HashMap<usize, Arc<Room>>,
+  origin: Vec3,
 }
 
 impl Building {
   pub fn setup(
-    commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-    mut rng: ResMut<GlobalRng>,
-    common_materials: ResMut<CommonMaterials>,
-  ) {
-    let mut builder = Builder::new();
-    for _ in 0..20 {
-      builder.insert_random_cell(&mut rng);
-    }
-    builder.build_rooms();
-    let cells = builder.finish();
-
-    Self::fabricate(
-      cells,
-      commands,
-      asset_server,
-      meshes,
-      materials,
-      common_materials,
-    );
-  }
-
-  fn fabricate(
-    cells: HashMap<Coord, Cell>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+    // mut rng: ResMut<GlobalRng>,
     mut common_materials: ResMut<CommonMaterials>,
-  ) -> Entity {
-    let building = Building::default();
-    let mut building_cells = building.cells.write();
-
-    for (coord, cell) in cells {
-      println!("Fabricating coord: {:?}", coord);
-
-      let cell = cell.finish();
-
-      cell.fabricate(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        &asset_server,
-        &mut common_materials,
-      );
-      building_cells.insert(coord, cell);
+  ) {
+    let mut building = Building::new();
+    for _ in 0..4 {
+      building.seed_random_room();
     }
 
-    drop(building_cells);
+    let _id = commands
+      .spawn_bundle(PbrBundle { ..default() })
+      .with_children(|child_builder| {
+        // fabricate..
+        for (coord, cell) in &building.cells {
+          println!("Fabricating coord: {:?}", coord);
 
-    commands.spawn().insert(building).id()
-  }
-}
+          cell.finish(&building);
 
-#[derive(Default)]
-pub struct Builder {
-  outer: Vec<Coord>,
-  cells: HashMap<Coord, Rc<RefCell<Cell>>>,
-  origin: Vec3,
-  building: Arc<Building>,
-}
-impl Builder {
-  fn new() -> Self {
-    let mut builder = Self::default();
-    builder.new_cell(Coord { x: 0, z: 0 });
-    builder
-  }
-
-  fn new_cell(&mut self, coord: Coord) {
-    let cell = Cell::new(coord, self);
-    self.cells.insert(coord, cell);
-    self.rebuild_meta();
-  }
-
-  fn insert_random_cell(&mut self, rng: &mut ResMut<GlobalRng>) {
-    let i = rng.usize(0..self.outer.len());
-    let coord = self
-      .outer
-      .get(i)
-      .expect("There should always be at least one outer coord.");
-    self.new_cell(*coord);
-  }
-
-  fn rebuild_meta(&mut self) {
-    let mut outer = HashSet::new();
-    for (_, cell) in &self.cells {
-      let empty_adj = (**cell).borrow().adj_empty(self);
-      // println!("Emtpy adj to {:?}: {:?}", coord, empty_adj);
-      outer.extend(empty_adj);
-      // println!("Outer hashset: {:?}", outer);
-    }
-    self.outer = outer.into_iter().collect();
-    // println!("Outer vec: {:?}", self.outer);
-    // println!("============Rebuilt============");
-  }
-
-  fn build_rooms(&mut self) {
-    for (coord, cell) in &self.cells {
-      {
-        if cell.borrow().room.is_some() {
-          continue;
+          cell.fabricate(
+            child_builder,
+            &mut meshes,
+            &mut materials,
+            &asset_server,
+            &mut common_materials,
+          );
         }
-      }
-
-      ArcRoom::create().fill(coord, self);
-    }
+      })
+      .insert(building)
+      .id();
   }
 
-  fn finish(&mut self) -> HashMap<Coord, Cell> {
-    let mut output = HashMap::new();
-    for (coord, cell) in self.cells.drain() {
-      let cell = Rc::try_unwrap(cell).expect("Something else is holding a ref of this cell.");
-      output.insert(coord, cell.into_inner());
+  fn new() -> Self {
+    let mut building = Self::default();
+    building.seed_room(Coord { x: 0, z: 0 });
+    building
+  }
+
+  pub fn retain_empty(&self, coords: &mut Vec<Coord>) {
+    coords.retain(|c| self.cells.get(c).is_none())
+  }
+
+  fn seed_room(&mut self, coord: Coord) {
+    ArcRoom::create(self, coord);
+  }
+
+  fn seed_random_room(&mut self) {
+    let coord = *self
+      .outer()
+      .choose(&mut thread_rng())
+      .expect("There should always be at least one outer coord.");
+
+    self.seed_room(coord);
+  }
+
+  fn outer(&self) -> Vec<Coord> {
+    let mut outer = HashSet::new();
+    for cell in self.cells.values() {
+      outer.extend(cell.adj_empty(self));
     }
-    output
+    outer.into_iter().collect()
   }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct Coord {
   pub x: i16,
   pub z: i16,
 }
 
 impl Coord {
-  fn adj_rand(&self) -> Vec<Self> {
-    let mut result = Vec::with_capacity(4);
-
+  pub fn adj(&self) -> Vec<Self> {
+    let mut adj = Vec::with_capacity(4);
     for (z, x, _) in CARDINAL {
-      result.push(Self {
+      adj.push(Self {
         z: self.z + z,
         x: self.x + x,
       });
     }
+    adj
+  }
 
-    result.shuffle(&mut thread_rng());
-    result
+  fn adj_rand(&self) -> Vec<Self> {
+    let mut adj = self.adj();
+    adj.shuffle(&mut thread_rng());
+    adj
   }
 }
 

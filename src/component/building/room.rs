@@ -1,94 +1,73 @@
+use super::Coord;
+use crate::building::Cell;
+use crate::*;
 use rand::{seq::SliceRandom, thread_rng, Rng};
 
-use super::{Builder, Coord};
-use crate::*;
+pub const MAX_SIZE: usize = 4;
 
-pub const MAX_SIZE: usize = 7;
-
-static RoomCount: AtomicUsize = AtomicUsize::new(0);
+static ROOM_COUNT: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug)]
 pub struct Room {
   pub id: usize,
-  cells: Mutex<HashSet<Coord>>,
+  pub cells: RwLock<HashSet<Coord>>,
   size: usize,
 }
 
 impl Default for Room {
   fn default() -> Self {
     Self {
-      id: RoomCount.fetch_add(1, Ordering::SeqCst),
-      ..default()
+      id: ROOM_COUNT.fetch_add(1, Ordering::SeqCst),
+      cells: RwLock::default(),
+      size: thread_rng().gen_range(0..MAX_SIZE) + 3,
     }
   }
 }
 
 impl Room {
-  fn cells(&self) -> &Mutex<HashSet<Coord>> {
+  fn cells(&self) -> &RwLock<HashSet<Coord>> {
     &self.cells
   }
   fn len(&self) -> usize {
-    self.cells.lock().len()
+    self.cells.read().len()
+  }
+  fn is_empty(&self) -> bool {
+    self.cells.read().is_empty()
   }
 }
 
 pub type ArcRoom = Arc<Room>;
 pub trait ArcRoomExt {
-  fn create() -> Self;
-  fn fill(&self, start_coord: &Coord, builder: &Builder);
-  fn add_cell(&self, coord: &Coord, builder: &Builder) -> bool;
-  fn adj_unroomed_cells(&self, builder: &Builder) -> Vec<Coord>;
-  fn random_adj_unroomed_cell(&self, builder: &Builder) -> Option<Coord>;
+  fn create(building: &mut Building, start_coord: Coord) -> Self;
 }
 
 impl ArcRoomExt for ArcRoom {
-  fn create() -> Self {
-    Arc::new(Room {
-      size: thread_rng().gen_range(0..MAX_SIZE),
-      ..default()
-    })
-  }
+  fn create(building: &mut Building, start_coord: Coord) -> Self {
+    let room = Arc::new(Room::default());
 
-  fn add_cell(&self, coord: &Coord, builder: &Builder) -> bool {
-    let mut cell = match builder.cells.get(coord) {
-      Some(cell) => cell.borrow_mut(),
-      _ => return false,
-    };
-    cell.room = Some(self.clone());
-    self.cells.lock().insert(cell.coord);
-    true
-  }
-
-  fn fill(&self, start_coord: &Coord, builder: &Builder) {
-    if !self.add_cell(start_coord, builder) {
-      return;
-    }
-
-    while let Some(coord) = self.random_adj_unroomed_cell(builder) {
-      self.add_cell(&coord, builder);
-
-      if self.len() >= self.size {
-        break;
+    while room.len() < room.size {
+      // get empty adj coords
+      let mut empty_coords = HashSet::new();
+      for c in &*room.cells.read() {
+        let mut adj = c.adj();
+        building.retain_empty(&mut adj);
+        empty_coords.extend(adj);
       }
-    }
-  }
 
-  fn adj_unroomed_cells(&self, builder: &Builder) -> Vec<Coord> {
-    let mut adj = HashSet::new();
-    for coord in &*self.cells.lock() {
-      let cell = builder.cells.get(coord);
-      if let Some(cell) = cell {
-        for coord in cell.borrow().adj_unroomed(builder) {
-          adj.insert(coord);
+      let empty_coords: Vec<Coord> = empty_coords.into_iter().collect();
+
+      let coord = match empty_coords.choose(&mut thread_rng()) {
+        Some(coord) => *coord,
+        None if room.is_empty() => start_coord,
+        None => {
+          println!("Ran out of open spaces to fill a room with.");
+          break;
         }
-      }
-    }
-    adj.drain().collect()
-  }
+      };
 
-  fn random_adj_unroomed_cell(&self, builder: &Builder) -> Option<Coord> {
-    let mut coords = self.adj_unroomed_cells(builder);
-    coords.shuffle(&mut thread_rng());
-    coords.first().map(|c| *c)
+      println!("New cell at: {:?}, room: {}", coord, room.id);
+      Cell::new(coord, room.clone(), building);
+    }
+    room
   }
 }

@@ -1,6 +1,7 @@
 pub use bevy::prelude::*;
 pub use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
+pub use component::*;
 pub use parking_lot::{Mutex, RwLock};
 pub use std::{
   cell::RefCell,

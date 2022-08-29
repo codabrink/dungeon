@@ -29,7 +29,7 @@ impl Wall {
 
   pub fn fabricate(
     self,
-    commands: &mut Commands,
+    child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
@@ -40,7 +40,7 @@ impl Wall {
       _ => vec![],
     };
 
-    let mut entity = commands.spawn();
+    let mut entity = child_builder.spawn();
     let ec = entity
       .insert_bundle(PbrBundle {
         transform: Transform::from_translation(self.translation).with_rotation(self.rotation),

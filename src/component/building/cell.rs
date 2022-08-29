@@ -1,5 +1,7 @@
-use super::{room::ArcRoom, wall, Builder, Building, Coord, Room, Wall};
+use super::{wall, Building, Coord, Room, Wall};
 use crate::*;
+use rand::{seq::SliceRandom, thread_rng};
+use Dir::*;
 
 #[derive(Debug)]
 pub enum Dir {
@@ -9,11 +11,9 @@ pub enum Dir {
   W,
 }
 
-use rand::{seq::SliceRandom, thread_rng};
-use Dir::*;
 pub const D: f32 = 30.;
 const D2: f32 = D / 2.;
-pub const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (0, -1, S), (1, 0, E), (-1, 0, W)];
+pub const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (1, 0, E), (0, -1, S), (-1, 0, W)];
 const WALL: [[Vec3; 2]; 4] = [
   [Vec3::new(D2, 0., -D2), Vec3::new(D2, 0., D2)],
   [Vec3::new(D2, 0., D2), Vec3::new(-D2, 0., D2)],
@@ -23,49 +23,38 @@ const WALL: [[Vec3; 2]; 4] = [
 
 #[derive(Debug)]
 pub struct Cell {
-  pub building: Arc<Building>,
-  pub room: Option<ArcRoom>,
+  pub room: Arc<Room>,
   pub coord: Coord,
-  pub wall_state: [wall::State; 4],
-  pub walls: [Option<Entity>; 4],
-  pub entity: Option<Entity>,
-  origin: Vec3,
+  pub wall_state: RwLock<[wall::State; 4]>,
+  pub walls: RwLock<[Option<Entity>; 4]>,
 }
-
 #[derive(Component)]
 pub struct CellComponent {
-  cell: Arc<Cell>,
+  cell: ArcCell,
 }
 
 impl Cell {
-  pub fn new(coord: Coord, builder: &Builder) -> Rc<RefCell<Self>> {
-    Rc::new(RefCell::new(Self {
+  pub fn new(coord: Coord, room: Arc<Room>, building: &mut Building) -> Arc<Self> {
+    let cell = Arc::new(Self {
       coord,
-      origin: builder.origin,
-      building: builder.building.clone(),
-      wall_state: [wall::State::Solid; 4],
-      walls: [None; 4],
-      entity: None,
-      room: None,
-    }))
+      room,
+      wall_state: RwLock::new([wall::State::Solid; 4]),
+      walls: RwLock::new([None; 4]),
+    });
+
+    building.cells.insert(coord, cell.clone());
+    cell.room.cells.write().insert(coord);
+    cell
   }
 
-  pub fn finish(mut self) -> ArcCell {
+  pub fn finish(&self, building: &Building) {
     for (i, coord) in self.adj().iter().enumerate() {
-      match self.building.cells.read().get(coord) {
-        Some(cell) => {
-          if cell.room.as_ref().unwrap().id == self.room.as_ref().unwrap().id {
-            self.wall_state[i] = wall::State::None;
-          } else {
-            self.wall_state[i] = wall::State::Solid;
-          }
-        }
-        None => {
-          self.wall_state[i] = wall::State::Solid;
-        }
+      self.wall_state.write()[i] = match building.cells.get(coord) {
+        Some(cell) if cell.room.id == self.room.id => wall::State::None,
+        Some(cell) => wall::State::Solid,
+        None => wall::State::Solid,
       }
     }
-    Arc::new(self)
   }
 
   fn adj(&self) -> Vec<Coord> {
@@ -80,29 +69,16 @@ impl Cell {
   }
 
   /// returns a list of adjacent coordinates that are blank
-  pub fn adj_empty(&self, builder: &Builder) -> Vec<Coord> {
+  pub fn adj_empty(&self, building: &Building) -> Vec<Coord> {
     self
       .adj()
       .into_iter()
-      .filter(|adj| builder.cells.get(adj).is_none())
+      .filter(|adj| building.cells.get(adj).is_none())
       .collect()
   }
 
-  pub fn adj_unroomed(&self, builder: &Builder) -> Vec<Coord> {
-    self
-      .adj()
-      .into_iter()
-      .filter(|adj| {
-        if let Some(cell) = builder.cells.get(adj) {
-          return cell.borrow().room.is_none();
-        }
-        false
-      })
-      .collect()
-  }
-
-  pub fn adj_empty_shuffled(&self, builder: &Builder) -> Vec<Coord> {
-    let mut result = self.adj_empty(builder);
+  pub fn adj_empty_shuffled(&self, building: &Building) -> Vec<Coord> {
+    let mut result = self.adj_empty(building);
     result.shuffle(&mut thread_rng());
     result
   }
@@ -116,7 +92,7 @@ pub type ArcCell = Arc<Cell>;
 pub trait ArcCellExt {
   fn fabricate(
     &self,
-    commands: &mut Commands,
+    child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
@@ -127,7 +103,7 @@ pub trait ArcCellExt {
 impl ArcCellExt for ArcCell {
   fn fabricate(
     &self,
-    commands: &mut Commands,
+    child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
@@ -141,28 +117,15 @@ impl ArcCellExt for ArcCell {
       ..default()
     });
 
-    let translation =
-      Vec3::new(self.coord.x as f32 * D, 0.2, self.coord.z as f32 * D) + self.origin;
+    let translation = Vec3::new(self.coord.x as f32 * D, 0.2, self.coord.z as f32 * D);
     let transform = Transform::from_translation(translation);
 
     // println!("Floor transform: {:?}", &transform);
 
-    for (i, (z, x, _)) in CARDINAL.iter().enumerate() {}
-
-    for i in 0..4 {
-      let w = WALL[i];
-      Wall::build(w[0] + translation, w[1] + translation, self.wall_state[i]).fabricate(
-        commands,
-        meshes,
-        materials,
-        asset_server,
-      );
-    }
-
     let mesh = Mesh::from(shape::Plane { size: D });
     let collider = Collider::cuboid(D / 2., 0.1, D / 2.);
 
-    commands
+    child_builder
       .spawn_bundle(PbrBundle {
         mesh: meshes.add(mesh),
         material,
@@ -171,6 +134,18 @@ impl ArcCellExt for ArcCell {
       })
       .insert(collider)
       .insert(CellComponent { cell: self.clone() })
+      .with_children(|child_builder| {
+        let wall_state = self.wall_state.read();
+        for i in 0..4 {
+          let w = WALL[i];
+          Wall::build(w[0], w[1], wall_state[i]).fabricate(
+            child_builder,
+            meshes,
+            materials,
+            asset_server,
+          );
+        }
+      })
       .id()
   }
 }
