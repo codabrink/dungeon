@@ -47,7 +47,7 @@ impl Cell {
     cell
   }
 
-  pub fn finish(&self, building: &Building) {
+  pub fn collapse_walls(&self, building: &Building) {
     for (i, coord) in self.adj().iter().enumerate() {
       self.wall_state.write()[i] = match building.cells.get(coord) {
         Some(cell) if cell.room.id == self.room.id => wall::State::None,
@@ -66,6 +66,11 @@ impl Cell {
       });
     }
     result
+  }
+
+  pub fn create_door(&self, other: &Cell, cardinal_dir: usize) {
+    self.wall_state.write()[cardinal_dir] = wall::State::Door;
+    other.wall_state.write()[(cardinal_dir + 2) % 4] = wall::State::Door;
   }
 
   /// returns a list of adjacent coordinates that are blank

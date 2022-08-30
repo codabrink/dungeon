@@ -3,7 +3,7 @@ use crate::building::Cell;
 use crate::*;
 use rand::{seq::SliceRandom, thread_rng, Rng};
 
-pub const MAX_SIZE: usize = 4;
+pub const MAX_SIZE: usize = 8;
 
 static ROOM_COUNT: AtomicUsize = AtomicUsize::new(1);
 
@@ -11,6 +11,7 @@ static ROOM_COUNT: AtomicUsize = AtomicUsize::new(1);
 pub struct Room {
   pub id: usize,
   pub cells: RwLock<HashSet<Coord>>,
+  pub connected_to: RwLock<HashSet<usize>>,
   size: usize,
 }
 
@@ -19,7 +20,8 @@ impl Default for Room {
     Self {
       id: ROOM_COUNT.fetch_add(1, Ordering::SeqCst),
       cells: RwLock::default(),
-      size: thread_rng().gen_range(0..MAX_SIZE) + 3,
+      connected_to: RwLock::default(),
+      size: thread_rng().gen_range(0..MAX_SIZE) + 2,
     }
   }
 }
@@ -39,9 +41,33 @@ impl Room {
 pub type ArcRoom = Arc<Room>;
 pub trait ArcRoomExt {
   fn create(building: &mut Building, start_coord: Coord) -> Self;
+  fn join_rooms(&self, building: &Building);
 }
 
 impl ArcRoomExt for ArcRoom {
+  fn join_rooms(&self, building: &Building) {
+    let cells = &*self.cells.read();
+
+    for cell in cells {
+      for (i, adj_coord) in cell.adj().iter().enumerate() {
+        if let Some(adj_cell) = building.cells.get(adj_coord) {
+          let mut connected_to = self.connected_to.write();
+          let adj_room = adj_cell.room.id;
+
+          if adj_room != self.id && !connected_to.contains(&adj_room) {
+            let cell = building.cells.get(cell).unwrap();
+            let adj_room = building.rooms.get(&adj_room).unwrap();
+
+            connected_to.insert(adj_room.id);
+            adj_room.connected_to.write().insert(self.id);
+
+            cell.create_door(adj_cell, i);
+          }
+        }
+      }
+    }
+  }
+
   fn create(building: &mut Building, start_coord: Coord) -> Self {
     let room = Arc::new(Room::default());
 
@@ -68,6 +94,14 @@ impl ArcRoomExt for ArcRoom {
       println!("New cell at: {:?}, room: {}", coord, room.id);
       Cell::new(coord, room.clone(), building);
     }
+
+    for coord in &*room.cells.read() {
+      if let Some(cell) = building.cells.get(coord) {
+        cell.collapse_walls(building);
+      }
+    }
+
+    building.rooms.insert(room.id, room.clone());
     room
   }
 }

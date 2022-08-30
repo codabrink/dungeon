@@ -28,18 +28,18 @@ impl Building {
     mut common_materials: ResMut<CommonMaterials>,
   ) {
     let mut building = Building::new();
-    for _ in 0..4 {
+    for _ in 0..10 {
       building.seed_random_room();
     }
+
+    building.join_rooms();
 
     let _id = commands
       .spawn_bundle(PbrBundle { ..default() })
       .with_children(|child_builder| {
         // fabricate..
         for (coord, cell) in &building.cells {
-          println!("Fabricating coord: {:?}", coord);
-
-          cell.finish(&building);
+          // println!("Fabricating coord: {:?}", coord);
 
           cell.fabricate(
             child_builder,
@@ -68,6 +68,14 @@ impl Building {
     ArcRoom::create(self, coord);
   }
 
+  fn join_rooms(&mut self) {
+    // iterate through rooms
+    for room in self.rooms.values() {
+      // println!("Joining room: {}", room.id);
+      room.join_rooms(self);
+    }
+  }
+
   fn seed_random_room(&mut self) {
     let coord = *self
       .outer()
@@ -94,14 +102,13 @@ pub struct Coord {
 
 impl Coord {
   pub fn adj(&self) -> Vec<Self> {
-    let mut adj = Vec::with_capacity(4);
-    for (z, x, _) in CARDINAL {
-      adj.push(Self {
+    CARDINAL
+      .into_iter()
+      .map(|(z, x, _)| Self {
         z: self.z + z,
         x: self.x + x,
-      });
-    }
-    adj
+      })
+      .collect()
   }
 
   fn adj_rand(&self) -> Vec<Self> {

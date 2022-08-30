@@ -72,7 +72,7 @@ impl Wall {
   }
 
   fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
-    let mesh = Mesh::from(shape::Box::new(0.1, D / 2., self.len));
+    let mesh = Mesh::from(shape::Box::new(W, D / 2., self.len));
     let collider = Collider::cuboid(W, D / 4., self.len / 2.);
 
     let transform = Transform::from_translation(Vec3::new(0., D / 4., 0.));
