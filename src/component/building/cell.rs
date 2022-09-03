@@ -114,7 +114,7 @@ impl ArcCellExt for ArcCell {
     asset_server: &Res<AssetServer>,
     common_materials: &mut ResMut<CommonMaterials>,
   ) -> Entity {
-    let texture = asset_server.load("wood_floor.png");
+    let texture = asset_server.load("wood_floor.jpg");
     let material = materials.add(StandardMaterial {
       base_color_texture: Some(texture),
       alpha_mode: AlphaMode::Blend,

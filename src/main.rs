@@ -26,7 +26,6 @@ fn main() {
     .add_startup_system(component::Camera::setup)
     .add_startup_system(component::Grass::setup)
     .add_startup_system(component::Building::setup)
-    .add_startup_system(component::Tree::setup)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
     .add_system(component::Bullet::spawn)

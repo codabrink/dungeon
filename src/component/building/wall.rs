@@ -2,8 +2,15 @@ use super::cell::D;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-const W: f32 = 0.5;
-const DOOR_WIDTH: f32 = 8.;
+const WALL_W: f32 = 0.5;
+const DOOR_W: f32 = 8.;
+const DOOR_W_2: f32 = DOOR_W / 2.;
+const WALL_H: f32 = D / 2.;
+const WALL_H_2: f32 = WALL_H / 2.;
+const WALL_H_4: f32 = WALL_H_2 / 2.;
+const WALL_H_8: f32 = WALL_H_4 / 2.;
+const FRAME_W: f32 = WALL_W * 2.;
+
 #[derive(Component)]
 pub struct Wall {
   len: f32,
@@ -72,10 +79,10 @@ impl Wall {
   }
 
   fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
-    let mesh = Mesh::from(shape::Box::new(W, D / 2., self.len));
-    let collider = Collider::cuboid(W, D / 4., self.len / 2.);
+    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H, self.len));
+    let collider = Collider::cuboid(WALL_W, WALL_H_2, self.len / 2.);
 
-    let transform = Transform::from_translation(Vec3::new(0., D / 4., 0.));
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, 0.));
 
     let material = StandardMaterial {
       base_color: Color::WHITE,
@@ -87,13 +94,12 @@ impl Wall {
 
   fn fabricate_door(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
     let mut result = vec![];
-    let width = self.len / 2. - DOOR_WIDTH / 2.;
-    let mesh = Mesh::from(shape::Box::new(W, D / 2., width));
+    let width = self.len / 2. - DOOR_W_2;
+    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H, width));
 
     // left side
-    let collider = Collider::cuboid(W, D / 4., width / 2.);
-    let transform =
-      Transform::from_translation(Vec3::new(0., D / 4., -(width / 2. + DOOR_WIDTH / 2.)));
+    let collider = Collider::cuboid(WALL_W, WALL_H_2, width / 2.);
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, -(width / 2. + DOOR_W_2)));
     let material = StandardMaterial {
       base_color: Color::WHITE,
       ..default()
@@ -106,13 +112,31 @@ impl Wall {
     ));
 
     // right side
-    let transform =
-      Transform::from_translation(Vec3::new(0., D / 4., width / 2. + DOOR_WIDTH / 2.));
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, width / 2. + DOOR_W_2));
     result.push((mesh, transform, material.clone(), Some(collider)));
 
     // above door
-    let mesh = Mesh::from(shape::Box::new(W, D / 8., DOOR_WIDTH));
+    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H_4, DOOR_W));
     let transform = Transform::from_translation(Vec3::new(0., D * (7. / 16.), 0.));
+    result.push((mesh, transform, material, None));
+
+    // trim
+    let material = StandardMaterial {
+      base_color: Color::rgb_u8(165, 42, 42),
+      ..default()
+    };
+    // right trim
+    let mesh = Mesh::from(shape::Box::new(FRAME_W, WALL_H - WALL_H_4, FRAME_W));
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, DOOR_W_2));
+    result.push((mesh.clone(), transform, material.clone(), None));
+
+    // left trim
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, -DOOR_W_2));
+    result.push((mesh, transform, material.clone(), None));
+
+    // top trim
+    let mesh = Mesh::from(shape::Box::new(FRAME_W, FRAME_W, DOOR_W + FRAME_W));
+    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 + WALL_H_4, 0.));
     result.push((mesh, transform, material, None));
 
     result

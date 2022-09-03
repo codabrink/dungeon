@@ -38,11 +38,12 @@ impl Player {
       .insert(ExternalForce::default())
       .insert(Velocity::default())
       .insert(Damping {
-        linear_damping: 0.5,
+        linear_damping: 10.,
         angular_damping: 1.,
       })
       // .insert(GravityScale(0.))
       .insert(Collider::cuboid(rad / 2., rad / 2., rad / 2.))
+      .insert(ColliderMassProperties::Density(6.))
       .insert(Restitution {
         coefficient: 0.,
         combine_rule: CoefficientCombineRule::Min,
@@ -67,7 +68,7 @@ impl Player {
     let x = (-(down as i8) + up as i8) as f32;
     let z = (-(left as i8) + right as i8) as f32;
 
-    let scale = 1000.;
+    let scale = 20000.;
     force.force = Vec3::new(x * scale, 0., z * scale);
 
     let window = window.get_primary().unwrap();

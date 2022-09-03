@@ -10,7 +10,7 @@ impl Grass {
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
   ) {
-    let texture_handle = asset_server.load("grass.png");
+    let texture_handle = asset_server.load("grass.jpg");
     let aspect = 0.25;
 
     let material = materials.add(StandardMaterial {

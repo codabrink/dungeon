@@ -3,7 +3,6 @@ use crate::*;
 mod cell;
 use cell::*;
 mod wall;
-use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng};
 use wall::*;
 mod room;
@@ -23,7 +22,7 @@ impl Building {
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    ass: Res<AssetServer>,
     // mut rng: ResMut<GlobalRng>,
     mut common_materials: ResMut<CommonMaterials>,
   ) {
@@ -45,13 +44,17 @@ impl Building {
             child_builder,
             &mut meshes,
             &mut materials,
-            &asset_server,
+            &ass,
             &mut common_materials,
           );
         }
       })
       .insert(building)
       .id();
+
+    ENTITIES
+      .sofa
+      .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
   }
 
   fn new() -> Self {
