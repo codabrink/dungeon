@@ -21,7 +21,7 @@ fn main() {
     .add_plugin(RngPlugin::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-    // .add_plugin(RapierDebugRenderPlugin::default())
+    .add_plugin(RapierDebugRenderPlugin::default())
     .add_startup_system(component::Player::setup)
     .add_startup_system(component::Camera::setup)
     .add_startup_system(component::Grass::setup)

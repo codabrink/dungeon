@@ -30,11 +30,13 @@ impl Entity {
       .insert(ColliderMassProperties::Density(self.density))
       .with_children(|cbuild| {
         for (col, t) in &self.colliders {
-          let t = t.translation * Vec3::splat(self.scale);
+          let mut t = t.clone();
+          // t.scale = Vec3::splat(self.scale);
+
           cbuild
             .spawn()
             .insert(col.clone())
-            .insert_bundle(TransformBundle::from(Transform::from_translation(t)));
+            .insert_bundle(TransformBundle::from(t));
         }
       });
   }
@@ -42,6 +44,7 @@ impl Entity {
 
 pub struct Entities {
   pub sofa: Entity,
+  pub fridge: Entity,
 }
 
 lazy_static! {
@@ -53,10 +56,19 @@ fn init_entities() -> Entities {
     sofa: Entity {
       asset: "models/furniture.glb#Scene0",
       colliders: vec![(
+        Collider::cuboid(3.75, 4., 8.),
+        Transform::from_xyz(0., 4., 0.),
+      )],
+      scale: 0.9,
+      density: 0.,
+    },
+    fridge: Entity {
+      asset: "models/furniture.glb#Scene1",
+      colliders: vec![(
         Collider::cuboid(0.5, 0.5, 1.1),
         Transform::from_xyz(0., 0.5, 0.),
       )],
-      scale: 6.,
+      scale: 1.,
       density: 0.,
     },
   }
