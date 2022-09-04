@@ -1,4 +1,3 @@
-use super::{wall, Building, Coord, Room, Wall};
 use crate::*;
 use rand::{thread_rng, Rng};
 use Dir::*;
@@ -11,14 +10,26 @@ pub enum Dir {
   W,
 }
 
-pub const D: f32 = 30.;
-const D2: f32 = D / 2.;
+pub const CELL_SIZE: f32 = 30.;
+pub const CELL_SIZE_2: f32 = CELL_SIZE / 2.;
 pub const CARDINAL: [(i16, i16, Dir); 4] = [(0, 1, N), (1, 0, E), (0, -1, S), (-1, 0, W)];
 const WALL: [[Vec3; 2]; 4] = [
-  [Vec3::new(D2, 0., -D2), Vec3::new(D2, 0., D2)],
-  [Vec3::new(D2, 0., D2), Vec3::new(-D2, 0., D2)],
-  [Vec3::new(-D2, 0., D2), Vec3::new(-D2, 0., -D2)],
-  [Vec3::new(-D2, 0., -D2), Vec3::new(D2, 0., -D2)],
+  [
+    Vec3::new(CELL_SIZE_2, 0., -CELL_SIZE_2),
+    Vec3::new(CELL_SIZE_2, 0., CELL_SIZE_2),
+  ],
+  [
+    Vec3::new(CELL_SIZE_2, 0., CELL_SIZE_2),
+    Vec3::new(-CELL_SIZE_2, 0., CELL_SIZE_2),
+  ],
+  [
+    Vec3::new(-CELL_SIZE_2, 0., CELL_SIZE_2),
+    Vec3::new(-CELL_SIZE_2, 0., -CELL_SIZE_2),
+  ],
+  [
+    Vec3::new(-CELL_SIZE_2, 0., -CELL_SIZE_2),
+    Vec3::new(CELL_SIZE_2, 0., -CELL_SIZE_2),
+  ],
 ];
 
 #[derive(Debug)]
@@ -126,13 +137,17 @@ impl ArcCellExt for ArcCell {
       ..default()
     });
 
-    let translation = Vec3::new(self.coord.x as f32 * D, 0.2, self.coord.z as f32 * D);
+    let translation = Vec3::new(
+      self.coord.x as f32 * CELL_SIZE,
+      0.2,
+      self.coord.z as f32 * CELL_SIZE,
+    );
     let transform = Transform::from_translation(translation);
 
     // println!("Floor transform: {:?}", &transform);
 
-    let mesh = Mesh::from(shape::Plane { size: D });
-    let collider = Collider::cuboid(D / 2., 0.1, D / 2.);
+    let mesh = Mesh::from(shape::Plane { size: CELL_SIZE });
+    let collider = Collider::cuboid(CELL_SIZE / 2., 0.1, CELL_SIZE / 2.);
 
     child_builder
       .spawn_bundle(PbrBundle {
@@ -147,7 +162,11 @@ impl ArcCellExt for ArcCell {
         let wall_state = self.wall_state.read();
         for i in 0..4 {
           let w = WALL[i];
-          Wall::build(w[0], w[1], wall_state[i]).fabricate(child_builder, meshes, materials);
+          Wall::build(w[0], w[1], wall_state[i]).fabricate_as_child(
+            child_builder,
+            meshes,
+            materials,
+          );
         }
       })
       .id()

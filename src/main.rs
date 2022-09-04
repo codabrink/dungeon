@@ -15,7 +15,10 @@ pub use std::{
 };
 
 mod component;
+mod rect;
 mod zones;
+
+pub use rect::Rect;
 
 fn main() {
   App::new()

@@ -68,7 +68,7 @@ impl Player {
     let x = (-(down as i8) + up as i8) as f32;
     let z = (-(left as i8) + right as i8) as f32;
 
-    let scale = 20000.;
+    let scale = 25000.;
     force.force = Vec3::new(x * scale, 0., z * scale);
 
     let window = window.get_primary().unwrap();

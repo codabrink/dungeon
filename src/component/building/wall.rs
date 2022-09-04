@@ -1,11 +1,11 @@
-use super::cell::D;
-use bevy::prelude::*;
+use super::cell::CELL_SIZE;
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 const WALL_W: f32 = 0.5;
 const DOOR_W: f32 = 8.;
 const DOOR_W_2: f32 = DOOR_W / 2.;
-const WALL_H: f32 = D / 2.;
+const WALL_H: f32 = CELL_SIZE / 2.;
 const WALL_H_2: f32 = WALL_H / 2.;
 const WALL_H_4: f32 = WALL_H_2 / 2.;
 const WALL_H_8: f32 = WALL_H_4 / 2.;
@@ -36,10 +36,28 @@ impl Wall {
 
   pub fn fabricate(
     self,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) -> Option<Entity> {
+    self._fabricate(commands.spawn(), meshes, materials)
+  }
+
+  pub fn fabricate_as_child(
+    self,
     child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     // asset_server: &Res<AssetServer>,
+  ) -> Option<Entity> {
+    self._fabricate(child_builder.spawn(), meshes, materials)
+  }
+
+  fn _fabricate(
+    self,
+    mut ec: EntityCommands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
   ) -> Option<Entity> {
     let result = match self.state {
       State::Solid => self.fabricate_wall(),
@@ -47,8 +65,7 @@ impl Wall {
       _ => return None,
     };
 
-    let mut entity = child_builder.spawn();
-    let ec = entity
+    let ec = ec
       .insert_bundle(PbrBundle {
         transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
         ..default()
@@ -117,7 +134,7 @@ impl Wall {
 
     // above door
     let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H_4, DOOR_W));
-    let transform = Transform::from_translation(Vec3::new(0., D * (7. / 16.), 0.));
+    let transform = Transform::from_translation(Vec3::new(0., CELL_SIZE * (7. / 16.), 0.));
     result.push((mesh, transform, material, None));
 
     // trim

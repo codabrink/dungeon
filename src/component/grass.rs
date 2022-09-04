@@ -17,6 +17,7 @@ impl Grass {
       base_color_texture: Some(texture_handle.clone()),
       alpha_mode: AlphaMode::Blend,
       reflectance: 0.0,
+      perceptual_roughness: 1.,
       // unlit: true,
       ..Default::default()
     });
