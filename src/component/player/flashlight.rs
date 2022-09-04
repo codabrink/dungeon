@@ -68,7 +68,7 @@ impl Flashlight {
       .with_children(|f| {
         f.spawn_bundle(PointLightBundle {
           point_light: PointLight {
-            range: 12000.,
+            range: 100.,
             intensity: 10000.,
             shadows_enabled: true,
             ..Default::default()

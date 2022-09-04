@@ -39,12 +39,12 @@ impl Wall {
     child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    asset_server: &Res<AssetServer>,
+    // asset_server: &Res<AssetServer>,
   ) -> Option<Entity> {
     let result = match self.state {
       State::Solid => self.fabricate_wall(),
       State::Door => self.fabricate_door(),
-      _ => vec![],
+      _ => return None,
     };
 
     let mut entity = child_builder.spawn();

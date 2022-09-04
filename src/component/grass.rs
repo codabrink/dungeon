@@ -21,15 +21,24 @@ impl Grass {
       ..Default::default()
     });
 
-    let size = 50.;
+    const size: f32 = 50.;
+    const size_2: f32 = size / 2.;
 
-    commands
-      .spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size })),
-        material,
-        transform: Transform::from_xyz(0., 0., 0.),
-        ..default()
-      })
-      .insert(Self);
+    let r = 10;
+    for z in -r..r {
+      for x in -r..r {
+        let transform = Transform::from_xyz(size * x as f32, 0., size * z as f32);
+        commands
+          .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size })),
+            material: material.clone(),
+            transform,
+            ..default()
+          })
+          .insert(RigidBody::Fixed)
+          .insert(Collider::cuboid(size_2, 0.2, size_2))
+          .insert(Self);
+      }
+    }
   }
 }

@@ -3,12 +3,10 @@ use crate::*;
 mod cell;
 use cell::*;
 mod wall;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use wall::*;
 mod room;
 use room::*;
-
-use crate::CommonMaterials;
 
 #[derive(Component, Default)]
 pub struct Building {
@@ -18,13 +16,11 @@ pub struct Building {
 }
 
 impl Building {
-  pub fn setup(
+  pub fn spawn(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     ass: Res<AssetServer>,
-    // mut rng: ResMut<GlobalRng>,
-    mut common_materials: ResMut<CommonMaterials>,
   ) {
     let mut building = Building::new();
     for _ in 0..10 {
@@ -32,29 +28,29 @@ impl Building {
     }
 
     building.join_rooms();
+    building.create_outside_doors();
 
     let _id = commands
       .spawn_bundle(PbrBundle { ..default() })
       .with_children(|child_builder| {
-        // fabricate..
-        for (coord, cell) in &building.cells {
-          // println!("Fabricating coord: {:?}", coord);
-
-          cell.fabricate(
-            child_builder,
-            &mut meshes,
-            &mut materials,
-            &ass,
-            &mut common_materials,
-          );
+        for cell in building.cells.values() {
+          cell.fabricate(child_builder, &mut meshes, &mut materials, &ass);
         }
       })
       .insert(building)
       .id();
 
-    ENTITIES
-      .sofa
-      .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
+    for _ in 0..5 {
+      ENTITIES
+        .standing_lamp
+        .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
+      ENTITIES
+        .sofa
+        .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
+      ENTITIES
+        .fridge
+        .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
+    }
   }
 
   fn new() -> Self {
@@ -71,11 +67,19 @@ impl Building {
     ArcRoom::create(self, coord);
   }
 
-  fn join_rooms(&mut self) {
+  fn join_rooms(&self) {
     // iterate through rooms
     for room in self.rooms.values() {
       // println!("Joining room: {}", room.id);
       room.join_rooms(self);
+    }
+  }
+
+  fn create_outside_doors(&self) {
+    let mut rng = thread_rng();
+    let mut count = [(0, rng.gen_range(0..3)); 4];
+    for cell in self.cells.values() {
+      cell.create_outside_door(self, &mut count);
     }
   }
 

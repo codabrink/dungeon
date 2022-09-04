@@ -1,18 +1,13 @@
-use bevy::{
-  asset::AssetLoader,
-  gltf::{self, GltfLoader},
-  prelude::*,
-  reflect::erased_serde::private::serde::__private::de,
-};
-use bevy_rapier3d::{prelude::*, rapier::prelude::ColliderBuilder};
+use crate::*;
 use lazy_static::lazy_static;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Entity {
   asset: &'static str,
   colliders: Vec<(Collider, Transform)>,
   scale: f32,
   density: f32,
+  point_lights: Vec<(PointLight, Transform)>,
 }
 
 impl Entity {
@@ -30,13 +25,19 @@ impl Entity {
       .insert(ColliderMassProperties::Density(self.density))
       .with_children(|cbuild| {
         for (col, t) in &self.colliders {
-          let mut t = t.clone();
-          // t.scale = Vec3::splat(self.scale);
-
           cbuild
             .spawn()
             .insert(col.clone())
-            .insert_bundle(TransformBundle::from(t));
+            .insert_bundle(TransformBundle::from(*t));
+        }
+
+        for (point_light, transform) in &self.point_lights {
+          cbuild
+            .spawn_bundle(PointLightBundle {
+              point_light: point_light.clone(),
+              ..default()
+            })
+            .insert_bundle(TransformBundle::from(*transform));
         }
       });
   }
@@ -45,6 +46,7 @@ impl Entity {
 pub struct Entities {
   pub sofa: Entity,
   pub fridge: Entity,
+  pub standing_lamp: Entity,
 }
 
 lazy_static! {
@@ -61,15 +63,35 @@ fn init_entities() -> Entities {
       )],
       scale: 0.9,
       density: 0.,
+      ..default()
     },
     fridge: Entity {
       asset: "models/furniture.glb#Scene1",
       colliders: vec![(
-        Collider::cuboid(0.5, 0.5, 1.1),
-        Transform::from_xyz(0., 0.5, 0.),
+        Collider::cuboid(2., 6., 2.),
+        Transform::from_xyz(0., 6., 0.),
       )],
       scale: 1.,
       density: 0.,
+      ..default()
+    },
+    standing_lamp: Entity {
+      asset: "models/furniture.glb#Scene2",
+      colliders: vec![(
+        Collider::cuboid(2., 7., 2.),
+        Transform::from_xyz(0., 7., 0.),
+      )],
+      scale: 1.,
+      density: 0.,
+      point_lights: vec![(
+        PointLight {
+          range: 30.,
+          intensity: 5000.,
+          // shadows_enabled: true,
+          ..default()
+        },
+        Transform::from_xyz(0., 13., 0.),
+      )],
     },
   }
 }

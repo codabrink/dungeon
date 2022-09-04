@@ -1,6 +1,6 @@
 use super::{wall, Building, Coord, Room, Wall};
 use crate::*;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{thread_rng, Rng};
 use Dir::*;
 
 #[derive(Debug)]
@@ -48,11 +48,13 @@ impl Cell {
   }
 
   pub fn collapse_walls(&self, building: &Building) {
+    let mut wall_state = self.wall_state.write();
     for (i, coord) in self.adj().iter().enumerate() {
-      self.wall_state.write()[i] = match building.cells.get(coord) {
+      wall_state[i] = match building.cells.get(coord) {
         Some(cell) if cell.room.id == self.room.id => wall::State::None,
-        Some(cell) => wall::State::Solid,
+        Some(_) if i >= 1 && i <= 2 => wall::State::Solid,
         None => wall::State::Solid,
+        _ => wall::State::None,
       }
     }
   }
@@ -73,6 +75,20 @@ impl Cell {
     other.wall_state.write()[(cardinal_dir + 2) % 4] = wall::State::Door;
   }
 
+  pub fn create_outside_door(&self, building: &Building, count: &mut [(u8, u8); 4]) {
+    for (i, coord) in self.adj().iter().enumerate() {
+      if building.cells.get(coord).is_some() {
+        continue;
+      }
+
+      if count[i].0 < count[i].1 {
+        self.wall_state.write()[i] = wall::State::Door;
+        count[i].0 += 1;
+        return;
+      }
+    }
+  }
+
   /// returns a list of adjacent coordinates that are blank
   pub fn adj_empty(&self, building: &Building) -> Vec<Coord> {
     self
@@ -81,16 +97,6 @@ impl Cell {
       .filter(|adj| building.cells.get(adj).is_none())
       .collect()
   }
-
-  pub fn adj_empty_shuffled(&self, building: &Building) -> Vec<Coord> {
-    let mut result = self.adj_empty(building);
-    result.shuffle(&mut thread_rng());
-    result
-  }
-
-  fn fabricate_walls(&self, commands: &mut Commands) {}
-
-  pub fn check_open(list: &mut Vec<Dir>, dir: Dir) {}
 }
 
 pub type ArcCell = Arc<Cell>;
@@ -101,7 +107,6 @@ pub trait ArcCellExt {
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
-    common_materials: &mut ResMut<CommonMaterials>,
   ) -> Entity;
 }
 
@@ -112,7 +117,6 @@ impl ArcCellExt for ArcCell {
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
-    common_materials: &mut ResMut<CommonMaterials>,
   ) -> Entity {
     let texture = asset_server.load("wood_floor.jpg");
     let material = materials.add(StandardMaterial {
@@ -143,12 +147,7 @@ impl ArcCellExt for ArcCell {
         let wall_state = self.wall_state.read();
         for i in 0..4 {
           let w = WALL[i];
-          Wall::build(w[0], w[1], wall_state[i]).fabricate(
-            child_builder,
-            meshes,
-            materials,
-            asset_server,
-          );
+          Wall::build(w[0], w[1], wall_state[i]).fabricate(child_builder, meshes, materials);
         }
       })
       .id()

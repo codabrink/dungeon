@@ -11,25 +11,31 @@ pub use std::{
     atomic::{AtomicUsize, Ordering},
     Arc,
   },
+  time::{Duration, Instant},
 };
 
 mod component;
+mod zones;
 
 fn main() {
   App::new()
     .insert_resource(CommonMaterials::default())
+    .insert_resource(zones::Zones::default())
+    .insert_resource(road::RoadGrid::default())
     .add_plugin(RngPlugin::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-    .add_plugin(RapierDebugRenderPlugin::default())
+    // .add_plugin(RapierDebugRenderPlugin::default())
     .add_startup_system(component::Player::setup)
     .add_startup_system(component::Camera::setup)
     .add_startup_system(component::Grass::setup)
-    .add_startup_system(component::Building::setup)
+    .add_startup_system(component::Building::spawn)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
     .add_system(component::Bullet::spawn)
     .add_system(component::Bullet::despawn)
+    .add_system(zones::Zones::update)
+    .add_system(road::RoadGrid::update)
     .run();
 }
 
