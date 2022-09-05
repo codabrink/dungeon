@@ -9,16 +9,11 @@ pub struct NavNode {
   pub adj: RwLock<HashSet<Arc<Self>>>,
   pub pos: Vec3,
   pub r#type: NavNodeType, // not really used now, but might be useful later
-  pub area: Option<Rect>,
+  pub area: Rect,
 }
 
 impl NavNode {
-  pub fn new(
-    pos: Vec3,
-    r#type: NavNodeType,
-    area: Option<Rect>,
-    adj: HashSet<Arc<Self>>,
-  ) -> Arc<Self> {
+  pub fn new(pos: Vec3, r#type: NavNodeType, area: Rect, adj: HashSet<Arc<Self>>) -> Arc<Self> {
     Arc::new(Self {
       id: NAV_ID.fetch_add(1, Ordering::SeqCst),
       pos,

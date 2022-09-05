@@ -6,9 +6,13 @@ const SIZE: f32 = 100.;
 static WAIT: Duration = Duration::from_secs(5);
 
 lazy_static! {
-  static ref NAV: (Sender<Arc<NavNode>>, Receiver<Arc<NavNode>>) = unbounded();
-  pub static ref NAV_TX: Sender<Arc<NavNode>> = NAV.0.clone();
-  static ref NAV_RX: Receiver<Arc<NavNode>> = NAV.1.clone();
+  static ref ZONE: (Sender<ZItem>, Receiver<ZItem>) = unbounded();
+  pub static ref ZONE_TX: Sender<ZItem> = ZONE.0.clone();
+}
+
+pub enum ZItem {
+  Building(Arc<Building>),
+  Nav(Arc<NavNode>),
 }
 
 pub struct Zones {
@@ -18,9 +22,9 @@ pub struct Zones {
 
 #[derive(Default)]
 pub struct Zone {
-  pub nav_nodes: HashSet<Arc<NavNode>>,
   pub entities: HashSet<Entity>,
-  pub navigated: AtomicBool,
+  pub nav_nodes: HashSet<Arc<NavNode>>,
+  pub buildings: HashSet<Arc<Building>>,
 }
 
 impl Zones {
@@ -34,10 +38,15 @@ impl Zones {
     ((t.z / SIZE) as i16, (t.x / SIZE) as i16)
   }
 
-  // #[inline]
-  // pub fn zone(&self, t: &Vec3) -> Option<&Zone> {
-  // self.zones.entry(Self::translation_to_coord(t)).or_default()
-  // }
+  #[inline]
+  pub fn zone(&self, t: &Vec3) -> Option<&Zone> {
+    self.zones.get(&Self::translation_to_coord(t))
+  }
+
+  #[inline]
+  fn zone_or_create_mut(&mut self, t: &Vec3) -> &mut Zone {
+    self.zones.entry(Self::translation_to_coord(t)).or_default()
+  }
 
   pub fn update(mut this: ResMut<Self>, query: Query<(Entity, &GlobalTransform)>) {
     if this.last_ran.elapsed() < WAIT {
@@ -56,6 +65,19 @@ impl Zones {
         .or_default()
         .entities
         .insert(e);
+    }
+
+    for item in ZONE.1.try_iter() {
+      match item {
+        ZItem::Building(b) => {
+          let zone = this.zone_or_create_mut(&b.origin.translation);
+          zone.buildings.insert(b);
+        }
+        ZItem::Nav(n) => {
+          let zone = this.zone_or_create_mut(&n.pos);
+          zone.nav_nodes.insert(n);
+        }
+      }
     }
 
     // for (k, v) in &zones.entities {

@@ -45,6 +45,7 @@ pub struct Cell {
   pub walls: RwLock<[Option<Entity>; 4]>,
   // 0-3: doors, 4: self, 5: outside
   pub nav_nodes: RwLock<[Option<Arc<NavNode>>; 6]>,
+  pub pos: Vec3,
 }
 #[derive(Component)]
 pub struct CellComponent {
@@ -59,6 +60,7 @@ impl Cell {
       wall_state: RwLock::default(),
       walls: RwLock::default(),
       nav_nodes: RwLock::default(),
+      pos: building.coord_to_pos_global(&coord),
     });
 
     building.cells.insert(coord, cell.clone());
@@ -155,17 +157,19 @@ impl ArcCellExt for ArcCell {
     let pos = building.coord_to_pos_global(&self.coord);
     let area = Rect::build(CELL_SIZE, CELL_SIZE).center_at(&pos);
     let mut nav_nodes = self.nav_nodes.write();
-    let cell_nav = NavNode::new(pos, NavNodeType::Cell, Some(area), HashSet::new());
+    let cell_nav = NavNode::new(pos, NavNodeType::Cell, area, HashSet::new());
 
     for (i, state) in wall_state.iter().enumerate() {
       let adj_cell = building.cells.get(&adj[i]);
 
       match state {
         wall::State::Door => {
+          let pos = pos + WALL_NAV[i];
+          let area = Rect::build(1., 1.).center_at(&pos);
           let door_nav = NavNode::new(
-            pos + WALL_NAV[i],
+            pos,
             NavNodeType::Door,
-            None,
+            area,
             HashSet::from([cell_nav.clone()]), // link the cell to the door
           );
 
@@ -173,10 +177,12 @@ impl ArcCellExt for ArcCell {
 
           // outside...
           if adj_cell.is_none() {
+            let pos = pos + (WALL_NAV[i] * 2.);
+            let area = Rect::build(1., 1.).center_at(&pos);
             let outside_nav = NavNode::new(
-              pos + (WALL_NAV[i] * 2.),
+              pos,
               NavNodeType::Outside,
-              None,
+              area,
               HashSet::from([door_nav.clone()]),
             );
 
@@ -184,7 +190,7 @@ impl ArcCellExt for ArcCell {
             door_nav.adj.write().insert(door_nav.clone());
 
             nav_nodes[5] = Some(outside_nav.clone());
-            let _ = NAV_TX.send(outside_nav);
+            let _ = ZONE_TX.send(ZItem::Nav(outside_nav));
           }
 
           // TODO: This may not be needed due to the next match condition below?
@@ -195,7 +201,7 @@ impl ArcCellExt for ArcCell {
           // }
 
           nav_nodes[i] = Some(door_nav.clone());
-          let _ = NAV_TX.send(door_nav);
+          let _ = ZONE_TX.send(ZItem::Nav(door_nav));
         }
         wall::State::None => {
           // if there is a cell in this direction...
@@ -211,7 +217,7 @@ impl ArcCellExt for ArcCell {
     }
 
     nav_nodes[4] = Some(cell_nav.clone());
-    let _ = NAV_TX.send(cell_nav);
+    let _ = ZONE_TX.send(ZItem::Nav(cell_nav));
   }
 
   fn fabricate(

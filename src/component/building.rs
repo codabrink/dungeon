@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use crate::*;
 
 pub mod cell;
@@ -7,13 +9,21 @@ use rand::{seq::SliceRandom, thread_rng, Rng};
 pub mod room;
 use room::*;
 
-#[derive(Component, Default)]
+static BUILDING_ID: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Default)]
 pub struct Building {
+  id: usize,
   pub cells: HashMap<Coord, Arc<Cell>>,
   rooms: HashMap<usize, Arc<Room>>,
   bounds: Option<Rect>,
-  origin: Transform,
+  pub origin: Transform,
   pub navigated: AtomicBool,
+}
+
+#[derive(Component)]
+pub struct BuildingComponent {
+  pub building: Arc<Building>,
 }
 
 const PROPERTY_WIDTH: f32 = 200.;
@@ -42,7 +52,7 @@ impl Building {
     ass: Res<AssetServer>,
     origin: Transform,
     bounds: Option<Rect>,
-  ) {
+  ) -> Entity {
     let mut building = Building::new(origin, bounds);
     for _ in 0..10 {
       building.seed_random_room();
@@ -51,22 +61,16 @@ impl Building {
     building.join_rooms();
     building.create_outside_doors();
     building.gen_navigation();
+
+    let building = Arc::new(building);
+    let building_component = BuildingComponent {
+      building: building.clone(),
+    };
+
+    let _ = ZONE_TX.send(ZItem::Building(building.clone()));
+
     // DEBUG
     building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
-
-    let _id = commands
-      .spawn_bundle(PbrBundle {
-        transform: origin,
-        ..default()
-      })
-      .with_children(|child_builder| {
-        for cell in building.cells.values() {
-          cell.fabricate(&building, child_builder, &mut meshes, &mut materials, &ass);
-        }
-      })
-      .insert(building)
-      .id();
-
     // DEBUG
     for _ in 0..5 {
       ENTITIES
@@ -79,10 +83,24 @@ impl Building {
         .fridge
         .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
     }
+
+    commands
+      .spawn_bundle(PbrBundle {
+        transform: origin,
+        ..default()
+      })
+      .with_children(|child_builder| {
+        for cell in building.cells.values() {
+          cell.fabricate(&building, child_builder, &mut meshes, &mut materials, &ass);
+        }
+      })
+      .insert(building_component)
+      .id()
   }
 
   fn new(origin: Transform, bounds: Option<Rect>) -> Self {
     let mut building = Self {
+      id: BUILDING_ID.fetch_add(1, Ordering::SeqCst),
       origin,
       bounds,
       ..default()
@@ -200,3 +218,18 @@ impl From<(i16, i16)> for Coord {
     Self { x: c.1, z: c.0 }
   }
 }
+
+impl Hash for Building {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.id.hash(state);
+  }
+}
+impl PartialEq for Building {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+  fn ne(&self, other: &Self) -> bool {
+    self.id != other.id
+  }
+}
+impl Eq for Building {}
