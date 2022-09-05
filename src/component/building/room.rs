@@ -76,7 +76,7 @@ impl ArcRoomExt for ArcRoom {
       let mut empty_coords = HashSet::new();
       for c in &*room.cells.read() {
         let mut adj = c.adj();
-        building.retain_empty(&mut adj);
+        building.retain_empty_and_valid(&mut adj);
         empty_coords.extend(adj);
       }
 
@@ -91,7 +91,6 @@ impl ArcRoomExt for ArcRoom {
         }
       };
 
-      println!("New cell at: {:?}, room: {}", coord, room.id);
       Cell::new(coord, room.clone(), building);
     }
 

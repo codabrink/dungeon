@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Debug)]
 pub struct Rect {
   z_min: f32,
   z_max: f32,
@@ -26,7 +27,7 @@ impl Rect {
     RectBuilder { w, h }
   }
 
-  pub fn is_inside(&self, t: Vec3) -> bool {
+  pub fn contains(&self, t: Vec3) -> bool {
     t.z >= self.z_min && t.z <= self.z_max && t.x >= self.x_min && t.x <= self.x_max
   }
 
@@ -50,6 +51,18 @@ impl Rect {
 impl RectBuilder {
   pub fn enter_south_middle_at(&self, t: &Vec3) -> Rect {
     let x_min = t.x - CELL_SIZE_2;
+    let z_min = t.z - self.w / 2.;
+
+    Rect {
+      x_min,
+      x_max: x_min + self.h,
+      z_min,
+      z_max: z_min + self.w,
+    }
+  }
+
+  pub fn center_at(&self, t: &Vec3) -> Rect {
+    let x_min = t.x - self.h / 2.;
     let z_min = t.z - self.w / 2.;
 
     Rect {

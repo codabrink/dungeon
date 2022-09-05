@@ -39,7 +39,6 @@ impl Road {
     materials: &mut ResMut<Assets<StandardMaterial>>,
     ass: &Res<AssetServer>,
   ) -> Entity {
-    println!("New road");
     let mesh = Mesh::from(shape::Box::new(ROAD_WIDTH, ROAD_DEPTH, self.len));
     let material = materials.add(StandardMaterial {
       base_color: Color::BLACK,
@@ -195,7 +194,6 @@ impl RoadCell {
     materials: &mut ResMut<Assets<StandardMaterial>>,
     ass: &Res<AssetServer>,
   ) -> Self {
-    println!("New road cell");
     let translation = Vec3::new(coord.x as f32 * GRID_SIZE, 0., coord.z as f32 * GRID_SIZE);
 
     let mut roads = HashSet::new();

@@ -1,5 +1,4 @@
-use crate::*;
-use rand::{thread_rng, Rng};
+use crate::{nav::NavNodeComponent, *};
 use Dir::*;
 
 #[derive(Debug)]
@@ -31,6 +30,12 @@ const WALL: [[Vec3; 2]; 4] = [
     Vec3::new(CELL_SIZE_2, 0., -CELL_SIZE_2),
   ],
 ];
+const WALL_NAV: [Vec3; 4] = [
+  Vec3::new(CELL_SIZE_2, 0., 0.),
+  Vec3::new(0., 0., CELL_SIZE_2),
+  Vec3::new(-CELL_SIZE_2, 0., 0.),
+  Vec3::new(0., 0., -CELL_SIZE_2),
+];
 
 #[derive(Debug)]
 pub struct Cell {
@@ -38,6 +43,8 @@ pub struct Cell {
   pub coord: Coord,
   pub wall_state: RwLock<[wall::State; 4]>,
   pub walls: RwLock<[Option<Entity>; 4]>,
+  // 0-3: doors, 4: self, 5: outside
+  pub nav_nodes: RwLock<[Option<Arc<NavNode>>; 6]>,
 }
 #[derive(Component)]
 pub struct CellComponent {
@@ -49,8 +56,9 @@ impl Cell {
     let cell = Arc::new(Self {
       coord,
       room,
-      wall_state: RwLock::new([wall::State::Solid; 4]),
-      walls: RwLock::new([None; 4]),
+      wall_state: RwLock::default(),
+      walls: RwLock::default(),
+      nav_nodes: RwLock::default(),
     });
 
     building.cells.insert(coord, cell.clone());
@@ -70,13 +78,13 @@ impl Cell {
     }
   }
 
-  fn adj(&self) -> Vec<Coord> {
-    let mut result = Vec::with_capacity(4);
-    for (z, x, _) in CARDINAL {
-      result.push(Coord {
+  fn adj(&self) -> [Coord; 4] {
+    let mut result = [Coord::default(); 4];
+    for (i, (z, x, _)) in CARDINAL.iter().enumerate() {
+      result[i] = Coord {
         z: self.coord.z + z,
         x: self.coord.x + x,
-      });
+      };
     }
     result
   }
@@ -100,6 +108,22 @@ impl Cell {
     }
   }
 
+  pub fn fabricate_nav(
+    &self,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) {
+    for nav_node in &*self.nav_nodes.read() {
+      if let Some(nav_node) = nav_node {
+        NavNodeComponent {
+          node: nav_node.clone(),
+        }
+        .fabricate(commands, meshes, materials);
+      }
+    }
+  }
+
   /// returns a list of adjacent coordinates that are blank
   pub fn adj_empty(&self, building: &Building) -> Vec<Coord> {
     self
@@ -112,8 +136,10 @@ impl Cell {
 
 pub type ArcCell = Arc<Cell>;
 pub trait ArcCellExt {
+  fn gen_navigation(&self, building: &Building);
   fn fabricate(
     &self,
+    building: &Building,
     child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -122,8 +148,75 @@ pub trait ArcCellExt {
 }
 
 impl ArcCellExt for ArcCell {
+  fn gen_navigation(&self, building: &Building) {
+    let adj = self.adj();
+    let wall_state = self.wall_state.read();
+
+    let pos = building.coord_to_pos_global(&self.coord);
+    let area = Rect::build(CELL_SIZE, CELL_SIZE).center_at(&pos);
+    let mut nav_nodes = self.nav_nodes.write();
+    let cell_nav = NavNode::new(pos, NavNodeType::Cell, Some(area), HashSet::new());
+
+    for (i, state) in wall_state.iter().enumerate() {
+      let adj_cell = building.cells.get(&adj[i]);
+
+      match state {
+        wall::State::Door => {
+          let door_nav = NavNode::new(
+            pos + WALL_NAV[i],
+            NavNodeType::Door,
+            None,
+            HashSet::from([cell_nav.clone()]), // link the cell to the door
+          );
+
+          cell_nav.adj.write().insert(door_nav.clone()); // link the door back to the cell
+
+          // outside...
+          if adj_cell.is_none() {
+            let outside_nav = NavNode::new(
+              pos + (WALL_NAV[i] * 2.),
+              NavNodeType::Outside,
+              None,
+              HashSet::from([door_nav.clone()]),
+            );
+
+            // link the outside back to the door
+            door_nav.adj.write().insert(door_nav.clone());
+
+            nav_nodes[5] = Some(outside_nav.clone());
+            let _ = NAV_TX.send(outside_nav);
+          }
+
+          // TODO: This may not be needed due to the next match condition below?
+          // if let Some(adj_cell) = adj_cell {
+          // if let Some(node) = &adj_cell.nav_nodes.read()[4] {
+          // node.adj.write().insert(door_nav.clone()); // link adj cell to door
+          // }
+          // }
+
+          nav_nodes[i] = Some(door_nav.clone());
+          let _ = NAV_TX.send(door_nav);
+        }
+        wall::State::None => {
+          // if there is a cell in this direction...
+          if let Some(adj_cell) = adj_cell {
+            // let the adj cell's door know that this cell now exists
+            if let Some(door_nav) = &adj_cell.nav_nodes.read()[i.opposite()] {
+              door_nav.adj.write().insert(cell_nav.clone());
+            }
+          }
+        }
+        _ => {}
+      }
+    }
+
+    nav_nodes[4] = Some(cell_nav.clone());
+    let _ = NAV_TX.send(cell_nav);
+  }
+
   fn fabricate(
     &self,
+    building: &Building,
     child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -137,11 +230,7 @@ impl ArcCellExt for ArcCell {
       ..default()
     });
 
-    let translation = Vec3::new(
-      self.coord.x as f32 * CELL_SIZE,
-      0.2,
-      self.coord.z as f32 * CELL_SIZE,
-    );
+    let translation = building.coord_to_pos_rel(&self.coord);
     let transform = Transform::from_translation(translation);
 
     // println!("Floor transform: {:?}", &transform);
@@ -170,5 +259,14 @@ impl ArcCellExt for ArcCell {
         }
       })
       .id()
+  }
+}
+
+trait DoorIndex {
+  fn opposite(&self) -> usize;
+}
+impl DoorIndex for usize {
+  fn opposite(&self) -> usize {
+    (self + 2) % 4
   }
 }

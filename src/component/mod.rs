@@ -7,7 +7,7 @@ pub use grass::Grass;
 pub mod building;
 pub use building::{
   cell::{CELL_SIZE, CELL_SIZE_2},
-  room::Room,
+  room::{self, Room},
   wall::{self, Wall},
   Building, Coord,
 };
@@ -16,4 +16,8 @@ pub use bullet::Bullet;
 pub mod entities;
 pub use entities::ENTITIES;
 pub mod road;
-pub use road::*;
+pub use road::Road;
+pub mod zombie;
+pub use zombie::Zombie;
+pub mod navigatable;
+pub use navigatable::Navigatable;

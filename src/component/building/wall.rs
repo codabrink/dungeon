@@ -139,7 +139,7 @@ impl Wall {
 
     // trim
     let material = StandardMaterial {
-      base_color: Color::rgb_u8(165, 42, 42),
+      base_color: Color::rgb_u8(101, 67, 33),
       ..default()
     };
     // right trim

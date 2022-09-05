@@ -8,22 +8,20 @@ pub use std::{
   collections::{HashMap, HashSet},
   rc::Rc,
   sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
   },
   time::{Duration, Instant},
 };
+pub use system::*;
 
 mod component;
-mod rect;
-mod zones;
-
-pub use rect::Rect;
+mod system;
 
 fn main() {
   App::new()
     .insert_resource(CommonMaterials::default())
-    .insert_resource(zones::Zones::default())
+    .insert_resource(Zones::default())
     .insert_resource(road::RoadGrid::default())
     .add_plugin(RngPlugin::default())
     .add_plugins(DefaultPlugins)
@@ -37,7 +35,7 @@ fn main() {
     .add_system(component::Player::update)
     .add_system(component::Bullet::spawn)
     .add_system(component::Bullet::despawn)
-    .add_system(zones::Zones::update)
+    .add_system(Zones::update)
     .add_system(road::RoadGrid::update)
     .run();
 }

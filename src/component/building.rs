@@ -9,13 +9,14 @@ use room::*;
 
 #[derive(Component, Default)]
 pub struct Building {
-  cells: HashMap<Coord, Arc<Cell>>,
+  pub cells: HashMap<Coord, Arc<Cell>>,
   rooms: HashMap<usize, Arc<Room>>,
   bounds: Option<Rect>,
   origin: Transform,
+  pub navigated: AtomicBool,
 }
 
-const PROPERTY_WIDTH: f32 = 100.;
+const PROPERTY_WIDTH: f32 = 200.;
 const PROPERTY_WIDTH_2: f32 = PROPERTY_WIDTH / 2.;
 const PROPERTY_HEIGHT: f32 = PROPERTY_WIDTH;
 const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;
@@ -27,11 +28,9 @@ impl Building {
     mut materials: ResMut<Assets<StandardMaterial>>,
     ass: Res<AssetServer>,
   ) {
-    let origin = Transform::default();
+    let origin = Transform::from_xyz(0., 0.1, 0.);
     let bounds =
       Rect::build(PROPERTY_WIDTH, PROPERTY_HEIGHT).enter_south_middle_at(&origin.translation);
-
-    bounds.fabricate_debug_walls(&mut commands, &mut meshes, &mut materials);
 
     Self::fabricate(commands, meshes, materials, ass, origin, Some(bounds));
   }
@@ -51,6 +50,9 @@ impl Building {
 
     building.join_rooms();
     building.create_outside_doors();
+    building.gen_navigation();
+    // DEBUG
+    building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
 
     let _id = commands
       .spawn_bundle(PbrBundle {
@@ -59,12 +61,13 @@ impl Building {
       })
       .with_children(|child_builder| {
         for cell in building.cells.values() {
-          cell.fabricate(child_builder, &mut meshes, &mut materials, &ass);
+          cell.fabricate(&building, child_builder, &mut meshes, &mut materials, &ass);
         }
       })
       .insert(building)
       .id();
 
+    // DEBUG
     for _ in 0..5 {
       ENTITIES
         .standing_lamp
@@ -88,8 +91,26 @@ impl Building {
     building
   }
 
-  pub fn retain_empty(&self, coords: &mut Vec<Coord>) {
-    coords.retain(|c| self.cells.get(c).is_none())
+  fn fabricate_nav(
+    &self,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) {
+    for cell in self.cells.values() {
+      cell.fabricate_nav(commands, meshes, materials);
+    }
+  }
+
+  pub fn retain_empty_and_valid(&self, coords: &mut Vec<Coord>) {
+    coords.retain(|c| {
+      self.cells.get(c).is_none()
+        && self
+          .bounds
+          .as_ref()
+          .map(|b| b.contains(self.coord_to_pos_global(c)))
+          .unwrap_or(true)
+    })
   }
 
   fn seed_room(&mut self, coord: Coord) {
@@ -99,7 +120,6 @@ impl Building {
   fn join_rooms(&self) {
     // iterate through rooms
     for room in self.rooms.values() {
-      // println!("Joining room: {}", room.id);
       room.join_rooms(self);
     }
   }
@@ -112,6 +132,12 @@ impl Building {
     }
   }
 
+  fn gen_navigation(&self) {
+    for cell in self.cells.values() {
+      cell.gen_navigation(self);
+    }
+  }
+
   fn seed_random_room(&mut self) {
     let coord = match self.outer().choose(&mut thread_rng()) {
       Some(coord) => *coord,
@@ -121,29 +147,31 @@ impl Building {
     self.seed_room(coord);
   }
 
-  fn coord_to_pos(&self, coord: &Coord) -> Vec3 {
-    self.origin.translation + Vec3::new(coord.x as f32 * CELL_SIZE, 0., coord.z as f32 * CELL_SIZE)
+  pub fn coord_to_pos_rel(&self, coord: &Coord) -> Vec3 {
+    Vec3::new(coord.x as f32 * CELL_SIZE, 0., coord.z as f32 * CELL_SIZE)
+  }
+
+  pub fn coord_to_pos_global(&self, coord: &Coord) -> Vec3 {
+    self.origin.translation + self.coord_to_pos_rel(coord)
   }
 
   fn outer(&self) -> Vec<Coord> {
     let mut outer = HashSet::new();
     for cell in self.cells.values() {
-      outer.extend(cell.adj_empty(self));
+      for coord in cell.adj_empty(self) {
+        if let Some(bounds) = &self.bounds {
+          if !bounds.contains(self.coord_to_pos_global(&coord)) {
+            continue;
+          }
+          outer.insert(coord);
+        }
+      }
     }
-    outer
-      .into_iter()
-      .filter(|coord| {
-        self
-          .bounds
-          .as_ref()
-          .map(|b| b.is_inside(self.coord_to_pos(coord)))
-          .unwrap_or(true)
-      })
-      .collect()
+    outer.into_iter().collect()
   }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct Coord {
   pub x: i16,
   pub z: i16,
