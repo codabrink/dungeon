@@ -71,9 +71,9 @@ impl Building {
     let _ = ZONE_TX.send(ZItem::Building(building.clone()));
 
     // DEBUG
-    building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
+    // building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
     // DEBUG
-    for _ in 0..5 {
+    for _ in 0..0 {
       ENTITIES
         .standing_lamp
         .spawn(Transform::from_xyz(3., 1., 0.), &mut commands, &ass);
@@ -165,6 +165,7 @@ impl Building {
   ) {
     for cell in self.cells.values() {
       Zombie::fabricate(cell.random_pos(), commands, meshes, materials);
+      return;
     }
   }
 
@@ -187,9 +188,11 @@ impl Building {
 
   pub fn pos_global_to_coord(&self, pos: Vec3) -> Coord {
     let pos = pos - self.origin.translation;
+    let z_neg = (pos.z < 0.) as i16 * -2 + 1;
+    let x_neg = (pos.x < 0.) as i16 * -2 + 1;
     Coord {
-      z: ((pos.z + CELL_SIZE_2) / CELL_SIZE) as i16,
-      x: ((pos.x + CELL_SIZE_2) / CELL_SIZE) as i16,
+      z: ((pos.z.abs() + CELL_SIZE_2) / CELL_SIZE) as i16 * z_neg,
+      x: ((pos.x.abs() + CELL_SIZE_2) / CELL_SIZE) as i16 * x_neg,
     }
   }
 

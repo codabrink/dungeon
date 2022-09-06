@@ -1,5 +1,5 @@
 pub mod nav;
-pub use nav::{NavNode, NavNodeType};
+pub use nav::{NavNode, NavNodeType, Navigator};
 pub mod rect;
 pub use rect::Rect;
 pub mod zones;

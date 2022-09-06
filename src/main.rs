@@ -1,3 +1,4 @@
+pub use bevy::ecs::system::EntityCommands;
 pub use bevy::prelude::*;
 pub use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
@@ -31,6 +32,7 @@ fn main() {
     .add_startup_system(component::Camera::setup)
     .add_startup_system(component::Grass::setup)
     .add_startup_system(component::Building::spawn)
+    .add_startup_system(component::DebugText::spawn)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
     .add_system(component::Zombie::update)
@@ -38,6 +40,7 @@ fn main() {
     .add_system(component::Bullet::despawn)
     .add_system(Zones::update)
     .add_system(road::RoadGrid::update)
+    .add_system(component::DebugText::update)
     .run();
 }
 

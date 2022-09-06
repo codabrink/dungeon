@@ -1,9 +1,8 @@
 use super::cell::CELL_SIZE;
-use bevy::{ecs::system::EntityCommands, prelude::*};
-use bevy_rapier3d::prelude::*;
+use crate::*;
 
 const WALL_W: f32 = 0.5;
-const DOOR_W: f32 = 8.;
+pub const DOOR_W: f32 = 8.;
 const DOOR_W_2: f32 = DOOR_W / 2.;
 const WALL_H: f32 = CELL_SIZE / 2.;
 const WALL_H_2: f32 = WALL_H / 2.;
@@ -42,7 +41,6 @@ impl Wall {
   ) -> Option<Entity> {
     self._fabricate(commands.spawn(), meshes, materials)
   }
-
   pub fn fabricate_as_child(
     self,
     child_builder: &mut ChildBuilder,
@@ -94,7 +92,6 @@ impl Wall {
 
     Some(ec.id())
   }
-
   fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
     let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H, self.len));
     let collider = Collider::cuboid(WALL_W, WALL_H_2, self.len / 2.);

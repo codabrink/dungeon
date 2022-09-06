@@ -101,8 +101,12 @@ impl Cell {
   }
 
   pub fn create_door(&self, other: &Cell, cardinal_dir: usize) {
-    self.wall_state.write()[cardinal_dir] = wall::State::Door;
-    other.wall_state.write()[(cardinal_dir + 2) % 4] = wall::State::Door;
+    let (a, b) = match (1..=2).contains(&cardinal_dir) {
+      true => (wall::State::Door, wall::State::None),
+      _ => (wall::State::None, wall::State::Door),
+    };
+    self.wall_state.write()[cardinal_dir] = a;
+    other.wall_state.write()[cardinal_dir.opposite()] = b;
   }
 
   pub fn create_outside_door(&self, building: &Building, count: &mut [(u8, u8); 4]) {
@@ -174,7 +178,7 @@ impl ArcCellExt for ArcCell {
       match state {
         wall::State::Door => {
           let pos = pos + WALL_NAV[i];
-          let area = Rect::build(1., 1.).center_at(&pos);
+          let area = Rect::build(wall::DOOR_W, wall::DOOR_W).center_at(&pos);
           let door_nav = NavNode::new(
             pos,
             NavNodeType::Door,
@@ -187,7 +191,7 @@ impl ArcCellExt for ArcCell {
           // outside...
           if adj_cell.is_none() {
             let pos = pos + (WALL_NAV[i] * 2.);
-            let area = Rect::build(1., 1.).center_at(&pos);
+            let area = Rect::build(wall::DOOR_W, wall::DOOR_W).center_at(&pos);
             let outside_nav = NavNode::new(
               pos,
               NavNodeType::Outside,
@@ -202,12 +206,11 @@ impl ArcCellExt for ArcCell {
             let _ = ZONE_TX.send(ZItem::Nav(outside_nav));
           }
 
-          // TODO: This may not be needed due to the next match condition below?
-          // if let Some(adj_cell) = adj_cell {
-          // if let Some(node) = &adj_cell.nav_nodes.read()[4] {
-          // node.adj.write().insert(door_nav.clone()); // link adj cell to door
-          // }
-          // }
+          if let Some(adj_cell) = adj_cell {
+            if let Some(node) = &adj_cell.nav_nodes.read()[4] {
+              node.adj.write().insert(door_nav.clone()); // link adj cell to door
+            }
+          }
 
           nav_nodes[i] = Some(door_nav.clone());
           let _ = ZONE_TX.send(ZItem::Nav(door_nav));
