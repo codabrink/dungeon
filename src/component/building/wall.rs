@@ -3,7 +3,7 @@ use crate::*;
 
 const WALL_W: f32 = 0.5;
 pub const DOOR_W: f32 = 8.;
-const DOOR_W_2: f32 = DOOR_W / 2.;
+pub const DOOR_W_2: f32 = DOOR_W / 2.;
 const WALL_H: f32 = CELL_SIZE / 2.;
 const WALL_H_2: f32 = WALL_H / 2.;
 const WALL_H_4: f32 = WALL_H_2 / 2.;

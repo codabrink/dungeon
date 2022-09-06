@@ -178,7 +178,7 @@ impl ArcCellExt for ArcCell {
       match state {
         wall::State::Door => {
           let pos = pos + WALL_NAV[i];
-          let area = Rect::build(wall::DOOR_W, wall::DOOR_W).center_at(&pos);
+          let area = Rect::build(wall::DOOR_W_2, wall::DOOR_W_2).center_at(&pos);
           let door_nav = NavNode::new(
             pos,
             NavNodeType::Door,
@@ -191,7 +191,7 @@ impl ArcCellExt for ArcCell {
           // outside...
           if adj_cell.is_none() {
             let pos = pos + (WALL_NAV[i] * 2.);
-            let area = Rect::build(wall::DOOR_W, wall::DOOR_W).center_at(&pos);
+            let area = Rect::build(wall::DOOR_W_2, wall::DOOR_W_2).center_at(&pos);
             let outside_nav = NavNode::new(
               pos,
               NavNodeType::Outside,

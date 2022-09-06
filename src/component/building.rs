@@ -165,7 +165,6 @@ impl Building {
   ) {
     for cell in self.cells.values() {
       Zombie::fabricate(cell.random_pos(), commands, meshes, materials);
-      return;
     }
   }
 

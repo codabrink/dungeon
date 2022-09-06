@@ -52,7 +52,7 @@ impl Zombie {
   fn material() -> StandardMaterial {
     StandardMaterial {
       base_color: Color::RED,
-      unlit: true,
+      // unlit: true,
       ..default()
     }
   }
@@ -104,7 +104,7 @@ impl Zombie {
         // &z.dest
       };
 
-      ef.force = (*dest - t.translation).normalize() * 2500.;
+      ef.force = (*dest - t.translation).normalize() * 6000.;
     }
   }
 
