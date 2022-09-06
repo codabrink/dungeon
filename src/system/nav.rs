@@ -22,7 +22,10 @@ impl Navigator {
 
   pub fn nav(&mut self) {
     let last = match self.path.last() {
-      Some(last) if last.id == self.dest.id => return, // we made it
+      Some(last) if last.id == self.dest.id => {
+        println!("Made it!");
+        return;
+      } // we made it
       Some(last) => last,
       None => {
         // no path?
@@ -46,13 +49,15 @@ impl Navigator {
     }
 
     if let Some(choice) = choice {
+      println!("Choice: {}", choice.id);
       self.traversed.insert(choice.id);
       self.path.push(choice);
-      self.nav();
     } else {
+      println!("No Choice.");
       // no new choice found - walk it back
       self.path.pop();
     }
+    self.nav();
   }
 }
 

@@ -52,7 +52,7 @@ impl Zombie {
   fn material() -> StandardMaterial {
     StandardMaterial {
       base_color: Color::RED,
-      // unlit: true,
+      unlit: true,
       ..default()
     }
   }
@@ -114,7 +114,7 @@ impl Zombie {
     }
 
     let mut rng = thread_rng();
-    self.next_spot_update = Instant::now() + Duration::from_millis(rng.gen_range(100000..300000));
+    self.next_spot_update = Instant::now() + Duration::from_millis(rng.gen_range(1000..3000));
 
     if let Some(zone) = zones.zone(&t.translation) {
       for building in &zone.buildings {
@@ -128,6 +128,7 @@ impl Zombie {
               nav.nav();
               nav.path.reverse();
               self.nav = nav.path;
+              // println!("Nav len: {}", self.nav.len());
             }
             _ => {
               self.dest = cell.random_pos();

@@ -2,7 +2,7 @@ use crate::*;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use lazy_static::lazy_static;
 
-const SIZE: f32 = 100.;
+const SIZE: f32 = 10000.;
 static WAIT: Duration = Duration::from_secs(5);
 
 lazy_static! {
