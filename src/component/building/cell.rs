@@ -1,4 +1,5 @@
 use crate::{nav::NavNodeComponent, *};
+use rand::{thread_rng, Rng};
 use Dir::*;
 
 #[derive(Debug)]
@@ -89,6 +90,14 @@ impl Cell {
       };
     }
     result
+  }
+
+  pub fn random_pos(&self) -> Vec3 {
+    let mut rng = thread_rng();
+    let mut pos = self.pos.clone();
+    pos.z += rng.gen_range(-CELL_SIZE_2..CELL_SIZE_2);
+    pos.x += rng.gen_range(-CELL_SIZE_2..CELL_SIZE_2);
+    pos
   }
 
   pub fn create_door(&self, other: &Cell, cardinal_dir: usize) {
@@ -206,9 +215,19 @@ impl ArcCellExt for ArcCell {
         wall::State::None => {
           // if there is a cell in this direction...
           if let Some(adj_cell) = adj_cell {
-            // let the adj cell's door know that this cell now exists
-            if let Some(door_nav) = &adj_cell.nav_nodes.read()[i.opposite()] {
+            let adj_nav = adj_cell.nav_nodes.read();
+
+            // is the door owned by the adjacent cell?
+            if let Some(door_nav) = &adj_nav[i.opposite()] {
+              cell_nav.adj.write().insert(door_nav.clone());
               door_nav.adj.write().insert(cell_nav.clone());
+
+            // if there is an adjacent cell with a nav node, and no wall between them.. associate cells directly
+            } else if let Some(adj_cell_nav) = &adj_nav[4]
+              && adj_cell.wall_state.read()[i.opposite()] == wall::State::None
+            {
+              adj_cell_nav.adj.write().insert(cell_nav.clone());
+              cell_nav.adj.write().insert(adj_cell_nav.clone());
             }
           }
         }

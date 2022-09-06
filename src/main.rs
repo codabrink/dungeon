@@ -33,6 +33,7 @@ fn main() {
     .add_startup_system(component::Building::spawn)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
+    .add_system(component::Zombie::update)
     .add_system(component::Bullet::spawn)
     .add_system(component::Bullet::despawn)
     .add_system(Zones::update)

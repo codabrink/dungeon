@@ -160,7 +160,7 @@ impl Wall {
   }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum State {
   #[default]
   None,

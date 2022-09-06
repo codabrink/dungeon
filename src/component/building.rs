@@ -33,9 +33,9 @@ const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;
 
 impl Building {
   pub fn spawn(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
     ass: Res<AssetServer>,
   ) {
     let origin = Transform::from_xyz(0., 0.1, 0.);
@@ -61,6 +61,7 @@ impl Building {
     building.join_rooms();
     building.create_outside_doors();
     building.gen_navigation();
+    building.spawn_zombies(&mut commands, &mut meshes, &mut materials);
 
     let building = Arc::new(building);
     let building_component = BuildingComponent {
@@ -156,6 +157,17 @@ impl Building {
     }
   }
 
+  fn spawn_zombies(
+    &self,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) {
+    for cell in self.cells.values() {
+      Zombie::fabricate(cell.random_pos(), commands, meshes, materials);
+    }
+  }
+
   fn seed_random_room(&mut self) {
     let coord = match self.outer().choose(&mut thread_rng()) {
       Some(coord) => *coord,
@@ -171,6 +183,18 @@ impl Building {
 
   pub fn coord_to_pos_global(&self, coord: &Coord) -> Vec3 {
     self.origin.translation + self.coord_to_pos_rel(coord)
+  }
+
+  pub fn pos_global_to_coord(&self, pos: Vec3) -> Coord {
+    let pos = pos - self.origin.translation;
+    Coord {
+      z: ((pos.z + CELL_SIZE_2) / CELL_SIZE) as i16,
+      x: ((pos.x + CELL_SIZE_2) / CELL_SIZE) as i16,
+    }
+  }
+
+  pub fn pos_global_to_cell(&self, pos: Vec3) -> Option<&Arc<Cell>> {
+    self.cells.get(&self.pos_global_to_coord(pos))
   }
 
   fn outer(&self) -> Vec<Coord> {
