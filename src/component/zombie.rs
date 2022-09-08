@@ -1,19 +1,49 @@
 use crate::*;
+use bevy::{
+  pbr::RenderMaterials,
+  reflect::TypeUuid,
+  render::{
+    render_resource::{encase, AsBindGroup, OwnedBindingResource, ShaderRef, ShaderType},
+    renderer::RenderQueue,
+    Extract,
+  },
+};
 use rand::{thread_rng, Rng};
 
 #[derive(Component)]
 pub struct Zombie {
-  next_spot_update: Instant,
-  last_nav: Instant,
-  dest: Vec3,
+  nav_timeout: Instant,
+  dest: Option<Vec3>,
   nav: Vec<Arc<NavNode>>,
-  debug_square: Mutex<Option<Entity>>,
+  debug_square: Option<Entity>,
+  last_achievement: Instant,
+  stunned_until: Option<Instant>,
+}
+
+#[derive(AsBindGroup, TypeUuid, Clone)]
+#[uuid = "cc8705a9-9189-43e5-8a5b-c28b57bd6234"]
+pub struct ZombieMaterial {
+  #[uniform(0)]
+  health: f32,
+}
+
+impl Material for ZombieMaterial {
+  fn fragment_shader() -> ShaderRef {
+    "shaders/zombie.wgsl".into()
+  }
+}
+
+#[derive(Clone, ShaderType)]
+struct ZombieMaterialUniformData {
+  health: f32,
 }
 
 #[derive(Component)]
 pub struct Aggressive;
 
 static ZOMBIE_COUNT: AtomicUsize = AtomicUsize::new(0);
+static ACHIEVEMENT_TIMEOUT: Duration = Duration::from_secs(3);
+const ZOMBIE_LIMIT: usize = 50;
 
 const SIZE: f32 = 2.;
 const SIZE_2: f32 = SIZE / 2.;
@@ -23,12 +53,20 @@ impl Zombie {
     pos: Vec3,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-  ) -> Entity {
-    commands
-      .spawn_bundle(PbrBundle {
+    materials: &mut ResMut<Assets<ZombieMaterial>>,
+  ) -> Option<Entity> {
+    if ZOMBIE_COUNT.load(Ordering::SeqCst) >= ZOMBIE_LIMIT {
+      return None;
+    }
+
+    let health = Health::default();
+
+    let id = commands
+      .spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: SIZE })),
-        material: materials.add(Self::material()),
+        material: materials.add(ZombieMaterial {
+          health: health.health,
+        }),
         transform: Transform::from_xyz(pos.x, SIZE, pos.z),
         ..default()
       })
@@ -39,20 +77,27 @@ impl Zombie {
         linear_damping: 10.,
         angular_damping: 1.,
       })
+      .insert(Velocity::default())
+      .insert(health)
       .insert(Zombie {
-        next_spot_update: Instant::now(),
-        last_nav: Instant::now() - Duration::from_secs(60),
-        dest: pos,
+        nav_timeout: Instant::now(),
+        dest: None,
         nav: vec![],
-        debug_square: Mutex::default(),
+        debug_square: None,
+        last_achievement: Instant::now(),
+        stunned_until: None,
       })
-      .id()
+      .id();
+
+    ZOMBIE_COUNT.fetch_add(1, Ordering::SeqCst);
+
+    Some(id)
   }
 
   fn material() -> StandardMaterial {
     StandardMaterial {
       base_color: Color::RED,
-      // unlit: true,
+      unlit: true,
       ..default()
     }
   }
@@ -62,59 +107,130 @@ impl Zombie {
     mut query: Query<(&Transform, &mut ExternalForce, &mut Self), Without<Aggressive>>,
     player_query: Query<&Transform, With<Player>>,
 
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    commands: Commands,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
   ) {
     let now = Instant::now();
     let player_transform = player_query.single();
 
     for (t, mut ef, mut z) in query.iter_mut() {
-      if z.next_spot_update < now {
-        z.nav(t, player_transform, &zones);
-      }
-
-      let dest = if let Some(dest) = z.nav.last() {
-        if dest.area.contains(t.translation) {
-          z.nav.pop();
-
-          let mut debug_square = z.debug_square.lock();
-          if let Some(entity) = *debug_square {
-            commands.entity(entity).despawn_recursive();
-            *debug_square = None;
-          }
-
+      // stun
+      if let Some(stunned_until) = z.stunned_until {
+        if stunned_until > now {
           continue;
         }
 
-        let mut debug_square = z.debug_square.lock();
-        if debug_square.is_none() {
-          *debug_square = Some(
-            DebugSquare::build(dest.pos + Vec3::new(0., 2., 0.), Color::ORANGE).fabricate(
-              &mut commands,
-              &mut meshes,
-              &mut materials,
-            ),
-          );
-        }
+        z.stunned_until = None;
+      }
 
-        &dest.pos
-      } else {
+      z.nav(t, player_transform, &zones);
+
+      z.check_arrived(t);
+      z.update_dest(t);
+
+      if let Some(dest) = z.dest {
+        ef.force = (dest - t.translation).normalize() * 6000.;
+      }
+    }
+  }
+
+  pub fn update_impact(
+    mut commands: Commands,
+
+    mut query: Query<(
+      Entity,
+      &mut Zombie,
+      &mut Velocity,
+      &BulletImpact,
+      &mut Health,
+      &Handle<ZombieMaterial>,
+    )>,
+  ) {
+    for (entity, mut zombie, mut velocity, bullet_impact, mut health, material) in query.iter_mut()
+    {
+      zombie.stunned_until = Some(Instant::now() + Duration::from_secs(5));
+      velocity.linvel = bullet_impact.force;
+      // external_force.force = bullet_impact.force;
+      health.health -= bullet_impact.damage;
+
+      if health.is_dead() {
+        println!("Health: {}", health.health);
+        commands.entity(entity).despawn_recursive();
         continue;
-        // &z.dest
-      };
+      }
 
-      ef.force = (*dest - t.translation).normalize() * 6000.;
+      commands.entity(entity).remove::<BulletImpact>();
+    }
+  }
+
+  pub fn prepare_health(
+    materials: Res<RenderMaterials<ZombieMaterial>>,
+    health_query: Query<(&Health, &Handle<ZombieMaterial>)>,
+    render_queue: Res<RenderQueue>,
+  ) {
+    for (health, handle) in &health_query {
+      if let Some(material) = materials.get(handle) {
+        for binding in material.bindings.iter() {
+          if let OwnedBindingResource::Buffer(cur_buffer) = binding {
+            let mut buffer = encase::UniformBuffer::new(Vec::new());
+            buffer
+              .write(&ZombieMaterialUniformData {
+                health: health.health,
+              })
+              .unwrap();
+            render_queue.write_buffer(cur_buffer, 0, buffer.as_ref());
+          }
+        }
+      }
+    }
+  }
+
+  pub fn extract_health(
+    mut commands: Commands,
+    health_query: Extract<Query<(Entity, &Health, &Handle<ZombieMaterial>)>>,
+  ) {
+    for (entity, health, handle) in health_query.iter() {
+      commands
+        .get_or_spawn(entity)
+        .insert(*health)
+        .insert(handle.clone());
+    }
+  }
+
+  fn check_arrived(&mut self, t: &Transform) {
+    if let Some(dest) = self.nav.last() {
+      if dest.area.contains(&t.translation) {
+        self.nav.pop();
+        self.dest = None;
+        self.last_achievement = Instant::now();
+      }
+    }
+  }
+
+  fn update_dest(&mut self, t: &Transform) {
+    if let Some(dest) = self.nav.last() {
+      if dest.area.contains(&t.translation) {
+        self.nav.pop();
+        self.dest = None;
+
+        self.update_dest(t);
+        return;
+      }
+
+      if self.dest.is_none() {
+        self.dest = Some(dest.area.random(SIZE_2));
+      }
     }
   }
 
   fn nav(&mut self, t: &Transform, pt: &Transform, zones: &Res<Zones>) {
-    if !self.nav.is_empty() {
+    if !self.nav.is_empty() && self.last_achievement + ACHIEVEMENT_TIMEOUT > Instant::now() {
       return;
     }
 
     let mut rng = thread_rng();
-    self.next_spot_update = Instant::now() + Duration::from_millis(rng.gen_range(1000..3000));
+    self.nav_timeout = Instant::now() + Duration::from_millis(rng.gen_range(1000..3000));
 
     if let Some(zone) = zones.zone(&t.translation) {
       for building in &zone.buildings {
@@ -128,10 +244,11 @@ impl Zombie {
               nav.nav();
               nav.path.reverse();
               self.nav = nav.path;
+              self.dest = None;
               // println!("Nav len: {}", self.nav.len());
             }
             _ => {
-              self.dest = cell.random_pos();
+              self.dest = Some(cell.random_pos());
               return;
             }
           }

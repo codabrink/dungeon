@@ -1,3 +1,5 @@
+use rand::{thread_rng, Rng};
+
 use crate::*;
 
 #[derive(Debug)]
@@ -6,6 +8,8 @@ pub struct Rect {
   z_max: f32,
   x_min: f32,
   x_max: f32,
+  w: f32,
+  h: f32,
 }
 
 pub struct RectBuilder {
@@ -20,6 +24,8 @@ impl Rect {
       z_max,
       x_min,
       x_max,
+      w: z_max - z_min,
+      h: x_max - x_min,
     }
   }
 
@@ -27,8 +33,26 @@ impl Rect {
     RectBuilder { w, h }
   }
 
-  pub fn contains(&self, t: Vec3) -> bool {
+  pub fn contains(&self, t: &Vec3) -> bool {
     t.z >= self.z_min && t.z <= self.z_max && t.x >= self.x_min && t.x <= self.x_max
+  }
+
+  fn center(&self) -> Vec3 {
+    Vec3::new(
+      (self.x_min + self.x_max) / 2.,
+      0.,
+      (self.z_min + self.z_max) / 2.,
+    )
+  }
+
+  pub fn random(&self, padding: f32) -> Vec3 {
+    if padding * 2. >= self.w && self.w <= self.h {
+      return self.center();
+    }
+    let mut rng = thread_rng();
+    let z = rng.gen_range((self.z_min + padding)..(self.z_max - padding));
+    let x = rng.gen_range((self.x_min + padding)..(self.x_max - padding));
+    Vec3::new(x, 0., z)
   }
 
   pub fn fabricate_debug_walls(
@@ -58,6 +82,8 @@ impl RectBuilder {
       x_max: x_min + self.h,
       z_min,
       z_max: z_min + self.w,
+      w: self.w,
+      h: self.h,
     }
   }
 
@@ -70,6 +96,8 @@ impl RectBuilder {
       x_max: x_min + self.h,
       z_min,
       z_max: z_min + self.w,
+      w: self.w,
+      h: self.h,
     }
   }
 }

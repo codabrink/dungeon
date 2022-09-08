@@ -26,7 +26,7 @@ pub struct BuildingComponent {
   pub building: Arc<Building>,
 }
 
-const PROPERTY_WIDTH: f32 = 200.;
+const PROPERTY_WIDTH: f32 = 2000.;
 const PROPERTY_WIDTH_2: f32 = PROPERTY_WIDTH / 2.;
 const PROPERTY_HEIGHT: f32 = PROPERTY_WIDTH;
 const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;
@@ -36,32 +36,42 @@ impl Building {
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
+    zombie_material: ResMut<Assets<ZombieMaterial>>,
     ass: Res<AssetServer>,
   ) {
     let origin = Transform::from_xyz(0., 0.1, 0.);
     let bounds =
       Rect::build(PROPERTY_WIDTH, PROPERTY_HEIGHT).enter_south_middle_at(&origin.translation);
 
-    Self::fabricate(commands, meshes, materials, ass, origin, Some(bounds));
+    Self::fabricate(
+      commands,
+      meshes,
+      materials,
+      zombie_material,
+      ass,
+      origin,
+      Some(bounds),
+    );
   }
 
   fn fabricate(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut zombie_material: ResMut<Assets<ZombieMaterial>>,
     ass: Res<AssetServer>,
     origin: Transform,
     bounds: Option<Rect>,
   ) -> Entity {
     let mut building = Building::new(origin, bounds);
-    for _ in 0..10 {
+    for _ in 0..40 {
       building.seed_random_room();
     }
 
     building.join_rooms();
     building.create_outside_doors();
     building.gen_navigation();
-    building.spawn_zombies(&mut commands, &mut meshes, &mut materials);
+    building.spawn_zombies(&mut commands, &mut meshes, &mut zombie_material);
 
     let building = Arc::new(building);
     let building_component = BuildingComponent {
@@ -127,7 +137,7 @@ impl Building {
         && self
           .bounds
           .as_ref()
-          .map(|b| b.contains(self.coord_to_pos_global(c)))
+          .map(|b| b.contains(&self.coord_to_pos_global(c)))
           .unwrap_or(true)
     })
   }
@@ -161,7 +171,7 @@ impl Building {
     &self,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    materials: &mut ResMut<Assets<ZombieMaterial>>,
   ) {
     for cell in self.cells.values() {
       Zombie::fabricate(cell.random_pos(), commands, meshes, materials);
@@ -204,7 +214,7 @@ impl Building {
     for cell in self.cells.values() {
       for coord in cell.adj_empty(self) {
         if let Some(bounds) = &self.bounds {
-          if !bounds.contains(self.coord_to_pos_global(&coord)) {
+          if !bounds.contains(&self.coord_to_pos_global(&coord)) {
             continue;
           }
           outer.insert(coord);

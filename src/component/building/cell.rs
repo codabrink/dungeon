@@ -185,8 +185,14 @@ impl ArcCellExt for ArcCell {
             area,
             HashSet::from([cell_nav.clone()]), // link the cell to the door
           );
-
           cell_nav.adj.write().insert(door_nav.clone()); // link the door back to the cell
+
+          if let Some(adj_cell) = adj_cell {
+            if let Some(node) = &adj_cell.nav_nodes.read()[4] {
+              node.adj.write().insert(door_nav.clone()); // link adj cell to door
+              door_nav.adj.write().insert(node.clone());
+            }
+          }
 
           // outside...
           if adj_cell.is_none() {
@@ -204,12 +210,6 @@ impl ArcCellExt for ArcCell {
 
             nav_nodes[5] = Some(outside_nav.clone());
             let _ = ZONE_TX.send(ZItem::Nav(outside_nav));
-          }
-
-          if let Some(adj_cell) = adj_cell {
-            if let Some(node) = &adj_cell.nav_nodes.read()[4] {
-              node.adj.write().insert(door_nav.clone()); // link adj cell to door
-            }
           }
 
           nav_nodes[i] = Some(door_nav.clone());

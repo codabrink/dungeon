@@ -12,13 +12,13 @@ pub use building::{
   Building, Coord,
 };
 pub mod bullet;
-pub use bullet::Bullet;
+pub use bullet::{Bullet, BulletImpact};
 pub mod entities;
 pub use entities::ENTITIES;
 pub mod road;
 pub use road::Road;
 pub mod zombie;
-pub use zombie::Zombie;
+pub use zombie::*;
 pub mod navigatable;
 pub use navigatable::Navigatable;
 pub mod debug_line;
@@ -27,3 +27,5 @@ pub mod debug_square;
 pub use debug_square::DebugSquare;
 pub mod debug_text;
 pub use debug_text::DebugText;
+pub mod health;
+pub use health::*;

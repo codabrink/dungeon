@@ -1,5 +1,6 @@
 pub use bevy::ecs::system::EntityCommands;
 pub use bevy::prelude::*;
+use bevy::render::{RenderApp, RenderStage};
 pub use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
 pub use component::*;
@@ -20,13 +21,16 @@ mod component;
 mod system;
 
 fn main() {
-  App::new()
+  let mut app = App::new();
+
+  app
     .insert_resource(CommonMaterials::default())
     .insert_resource(Zones::default())
     .insert_resource(road::RoadGrid::default())
     .add_plugin(RngPlugin::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+    .add_plugin(MaterialPlugin::<ZombieMaterial>::default())
     // .add_plugin(RapierDebugRenderPlugin::default())
     .add_startup_system(component::Player::setup)
     .add_startup_system(component::Camera::setup)
@@ -36,12 +40,19 @@ fn main() {
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
     .add_system(component::Zombie::update)
+    .add_system(component::Zombie::update_impact)
     .add_system(component::Bullet::spawn)
-    .add_system(component::Bullet::despawn)
+    .add_system(component::Bullet::update)
     .add_system(Zones::update)
     .add_system(road::RoadGrid::update)
-    .add_system(component::DebugText::update)
-    .run();
+    .add_system(component::DebugText::update);
+
+  app
+    .sub_app_mut(RenderApp)
+    .add_system_to_stage(RenderStage::Extract, Zombie::extract_health)
+    .add_system_to_stage(RenderStage::Prepare, Zombie::prepare_health);
+
+  app.run();
 }
 
 pub type CommonMaterials = HashMap<String, Handle<StandardMaterial>>;

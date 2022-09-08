@@ -6,9 +6,21 @@ use std::time::{Duration, Instant};
 #[derive(Component)]
 pub struct Bullet {
   created_at: Instant,
+  vel: Vec3,
+}
+
+#[derive(Component)]
+pub struct BulletImpact {
+  pub force: Vec3,
+  pub damage: f32,
 }
 
 const RAD: f32 = 0.5;
+const VEL: f32 = 500.;
+
+const COLLISION_WIDTH_2: f32 = 3.5;
+const COLLISION_HEIGHT_2: f32 = 5.;
+const COLLISION_LENGTH_2: f32 = 15.;
 
 impl Bullet {
   pub fn spawn(
@@ -17,6 +29,7 @@ impl Bullet {
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    rapier_context: Res<RapierContext>,
     query: Query<(&Transform, &Player), With<Player>>,
   ) {
     let (t, player) = query.single();
@@ -25,35 +38,81 @@ impl Bullet {
     if !input.just_pressed(KeyCode::Space) && !mouse.just_pressed(MouseButton::Left) {
       return;
     }
-    let translation = Vec3::new(2. * theta.sin(), 0., 2. * theta.cos());
+
+    let direction = Vec3::new(theta.sin(), 0., theta.cos());
+    let transform = Transform::from_translation(t.translation + direction * 2.);
+
+    let shape = Collider::cuboid(COLLISION_WIDTH_2, COLLISION_HEIGHT_2, COLLISION_LENGTH_2);
+    let shape_pos = t.translation + direction * COLLISION_LENGTH_2;
+    let shape_rot = Quat::from_axis_angle(Vec3::Y, theta);
+
+    // debug...
+    // commands
+    // .spawn()
+    // .insert(shape.clone())
+    // .insert_bundle(TransformBundle::from(
+    // Transform::from_translation(shape_pos.clone()).with_rotation(shape_rot.clone()),
+    // ));
+
+    rapier_context.intersections_with_shape(
+      shape_pos,
+      shape_rot,
+      &shape,
+      QueryFilter::default(),
+      |entity| {
+        commands.entity(entity).insert(BulletImpact {
+          force: direction * 500.,
+          damage: 0.5,
+        });
+        true
+      },
+    );
+
+    // rapier_context.intersections_with_ray(
+    // transform.translation,
+    // direction,
+    // 40.,
+    // true,
+    // QueryFilter::default(),
+    // |entity, intersection| {
+    // commands.entity(entity).insert(BulletImpact {
+    // force: direction * 40000. + Vec3::Y * 30000.,
+    // });
+    // true
+    // },
+    // );
 
     let mesh = Mesh::from(shape::Cube { size: RAD });
-    let collider = Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap();
 
     commands
       .spawn_bundle(PbrBundle {
         mesh: meshes.add(mesh),
         material: materials.add(Self::material()),
-        transform: Transform::from_translation(t.translation + translation),
+        transform,
         ..default()
       })
-      .insert(RigidBody::Dynamic)
-      .insert(Velocity::linear(translation * 100.))
-      .insert(collider)
+      // .insert(Velocity::linear(translation * 100.))
       .insert(Bullet {
         created_at: Instant::now(),
+        vel: direction * VEL,
       })
       .with_children(|cb| {
         cb.spawn_bundle(PointLightBundle { ..default() });
       });
   }
 
-  pub fn despawn(mut commands: Commands, query: Query<(Entity, &Bullet)>) {
+  pub fn update(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &Bullet, &mut Transform)>,
+  ) {
     let now = Instant::now();
-    for (e, bullet) in query.iter() {
+    for (e, bullet, mut t) in query.iter_mut() {
       if now.duration_since(bullet.created_at) > Duration::from_secs(1) {
         commands.entity(e).despawn_recursive();
       }
+
+      t.translation += bullet.vel * time.delta_seconds();
     }
   }
 
