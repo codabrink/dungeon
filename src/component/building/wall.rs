@@ -57,103 +57,132 @@ impl Wall {
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
   ) -> Option<Entity> {
-    let result = match self.state {
-      State::Solid => self.fabricate_wall(),
-      State::Door => self.fabricate_door(),
+    let ec = ec.insert_bundle(PbrBundle {
+      transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
+      ..default()
+    });
+
+    match self.state {
+      State::Solid => self.fabricate_wall(ec, meshes, materials),
+      State::Door => self.fabricate_door(ec, meshes, materials),
       _ => return None,
     };
 
-    let ec = ec
-      .insert_bundle(PbrBundle {
-        transform: Transform::from_translation(self.translation).with_rotation(self.rotation),
-        ..default()
-      })
-      .insert(self);
-
-    for (mesh, transform, material, collider) in result {
-      ec.with_children(|builder| {
-        let mut entity = builder.spawn_bundle(PbrBundle {
-          mesh: meshes.add(mesh),
-          transform,
-          material: materials.add(material),
-          ..default()
-        });
-
-        if let Some(collider) = collider {
-          entity.insert(collider);
-          // .insert(RigidBody::Dynamic)
-          // .insert(Sleeping {
-          // sleeping: true,
-          // ..default()
-          // });q
-        }
-      });
-    }
-
-    Some(ec.id())
+    Some(ec.insert(self).id())
   }
-  fn fabricate_wall(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
-    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H, self.len));
+
+  fn fabricate_wall(
+    &self,
+    ec: &mut EntityCommands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) -> Entity {
+    let mesh = meshes.add(Mesh::from(shape::Box::new(WALL_W, WALL_H, self.len)));
     let collider = Collider::cuboid(WALL_W, WALL_H_2, self.len / 2.);
+    let material = materials.add(Self::white_material());
 
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, 0.));
-
-    let material = StandardMaterial {
-      base_color: Color::WHITE,
-      ..default()
-    };
-
-    vec![(mesh, transform, material, Some(collider))]
+    ec.with_children(|child_builder| {
+      child_builder
+        .spawn_bundle(PbrBundle {
+          mesh,
+          material,
+          transform: Transform::from_translation(Vec3::new(0., WALL_H_2, 0.)),
+          ..default()
+        })
+        .insert(collider);
+    })
+    .id()
   }
 
-  fn fabricate_door(&self) -> Vec<(Mesh, Transform, StandardMaterial, Option<Collider>)> {
-    let mut result = vec![];
+  fn fabricate_door(
+    &self,
+    ec: &mut EntityCommands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+  ) -> Entity {
     let width = self.len / 2. - DOOR_W_2;
-    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H, width));
-
-    // left side
+    let material = materials.add(Self::white_material());
+    let mesh = meshes.add(Mesh::from(shape::Box::new(WALL_W, WALL_H, width)));
     let collider = Collider::cuboid(WALL_W, WALL_H_2, width / 2.);
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, -(width / 2. + DOOR_W_2)));
-    let material = StandardMaterial {
+
+    ec.with_children(|child_builder| {
+      // left side
+      child_builder
+        .spawn_bundle(PbrBundle {
+          mesh: mesh.clone(),
+          material: material.clone(),
+          transform: Transform::from_translation(Vec3::new(0., WALL_H_2, -(width / 2. + DOOR_W_2))),
+          ..default()
+        })
+        .insert(collider.clone());
+
+      // right side
+      child_builder
+        .spawn_bundle(PbrBundle {
+          mesh,
+          transform: Transform::from_translation(Vec3::new(0., WALL_H_2, width / 2. + DOOR_W_2)),
+          material: material.clone(),
+          ..default()
+        })
+        .insert(collider);
+
+      // above door
+      child_builder.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Box::new(WALL_W, WALL_H_4, DOOR_W))),
+        transform: Transform::from_translation(Vec3::new(0., CELL_SIZE * (7. / 16.), 0.)),
+        material,
+        ..default()
+      });
+
+      let material = materials.add(Self::brown_material());
+      let mesh = meshes.add(Mesh::from(shape::Box::new(
+        FRAME_W,
+        WALL_H - WALL_H_4,
+        FRAME_W,
+      )));
+      // right trim
+      child_builder.spawn_bundle(PbrBundle {
+        mesh: mesh.clone(),
+        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, DOOR_W_2)),
+        material: material.clone(),
+        ..default()
+      });
+
+      // left trim
+      child_builder.spawn_bundle(PbrBundle {
+        mesh,
+        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, -DOOR_W_2)),
+        material: material.clone(),
+        ..default()
+      });
+
+      // top trim
+      child_builder.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Box::new(
+          FRAME_W,
+          FRAME_W,
+          DOOR_W + FRAME_W,
+        ))),
+        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 + WALL_H_4, 0.)),
+        material,
+        ..default()
+      });
+    })
+    .id()
+  }
+
+  fn white_material() -> StandardMaterial {
+    StandardMaterial {
       base_color: Color::WHITE,
       ..default()
-    };
-    result.push((
-      mesh.clone(),
-      transform,
-      material.clone(),
-      Some(collider.clone()),
-    ));
+    }
+  }
 
-    // right side
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2, width / 2. + DOOR_W_2));
-    result.push((mesh, transform, material.clone(), Some(collider)));
-
-    // above door
-    let mesh = Mesh::from(shape::Box::new(WALL_W, WALL_H_4, DOOR_W));
-    let transform = Transform::from_translation(Vec3::new(0., CELL_SIZE * (7. / 16.), 0.));
-    result.push((mesh, transform, material, None));
-
-    // trim
-    let material = StandardMaterial {
+  fn brown_material() -> StandardMaterial {
+    StandardMaterial {
       base_color: Color::rgb_u8(101, 67, 33),
       ..default()
-    };
-    // right trim
-    let mesh = Mesh::from(shape::Box::new(FRAME_W, WALL_H - WALL_H_4, FRAME_W));
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, DOOR_W_2));
-    result.push((mesh.clone(), transform, material.clone(), None));
-
-    // left trim
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, -DOOR_W_2));
-    result.push((mesh, transform, material.clone(), None));
-
-    // top trim
-    let mesh = Mesh::from(shape::Box::new(FRAME_W, FRAME_W, DOOR_W + FRAME_W));
-    let transform = Transform::from_translation(Vec3::new(0., WALL_H_2 + WALL_H_4, 0.));
-    result.push((mesh, transform, material, None));
-
-    result
+    }
   }
 }
 

@@ -155,7 +155,6 @@ impl Zombie {
       health.health -= bullet_impact.damage;
 
       if health.is_dead() {
-        println!("Health: {}", health.health);
         commands.entity(entity).despawn_recursive();
         continue;
       }

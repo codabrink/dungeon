@@ -62,7 +62,7 @@ impl Bullet {
       |entity| {
         commands.entity(entity).insert(BulletImpact {
           force: direction * 500.,
-          damage: 0.5,
+          damage: 0.3,
         });
         true
       },
