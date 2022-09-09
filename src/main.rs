@@ -1,6 +1,9 @@
 pub use bevy::ecs::system::EntityCommands;
 pub use bevy::prelude::*;
-use bevy::render::{RenderApp, RenderStage};
+use bevy::{
+  diagnostic::FrameTimeDiagnosticsPlugin,
+  render::{RenderApp, RenderStage},
+};
 pub use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
 pub use component::*;
@@ -28,6 +31,7 @@ fn main() {
     .insert_resource(Zones::default())
     .insert_resource(road::RoadGrid::default())
     .add_plugin(RngPlugin::default())
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
     .add_plugins(DefaultPlugins)
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
     .add_plugin(MaterialPlugin::<ZombieMaterial>::default())

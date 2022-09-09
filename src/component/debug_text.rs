@@ -1,3 +1,5 @@
+use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
+
 use crate::*;
 
 #[derive(Component)]
@@ -34,13 +36,24 @@ impl DebugText {
     mut query: Query<&mut Text, With<DebugText>>,
     zones: Res<Zones>,
     player_query: Query<&Transform, With<Player>>,
+    diagnostics: Res<Diagnostics>,
   ) {
     let mut text = query.single_mut();
     let pt = player_query.single();
+
+    let mut fps = 0.;
+
+    if let Some(ftdp) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+      if let Some(average) = ftdp.average() {
+        fps = average;
+      }
+    }
+
     if let Some(zone) = zones.zone(&pt.translation) {
       for building in &zone.buildings {
         if let Some(cell) = building.pos_global_to_cell(pt.translation) {
-          text.sections[0].value = format!("Coord: {},{}", cell.coord.z, cell.coord.x);
+          text.sections[0].value =
+            format!("Coord: {},{}\nFPS: {:.2}", cell.coord.z, cell.coord.x, fps);
           return;
         }
       }
