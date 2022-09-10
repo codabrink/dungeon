@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub use bevy::ecs::system::EntityCommands;
 pub use bevy::prelude::*;
 use bevy::{
@@ -7,6 +9,8 @@ use bevy::{
 pub use bevy_rapier3d::prelude::*;
 use bevy_turborand::*;
 pub use component::*;
+use crossbeam_channel::{unbounded, Receiver, Sender};
+pub use lazy_static::lazy_static;
 pub use parking_lot::{Mutex, RwLock};
 pub use std::{
   cell::RefCell,
@@ -36,6 +40,10 @@ fn main() {
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
     .add_plugin(MaterialPlugin::<ZombieMaterial>::default())
     // .add_plugin(RapierDebugRenderPlugin::default())
+    .add_startup_system_to_stage(
+      StartupStage::PreStartup,
+      component::building::Room::load_materials,
+    )
     .add_startup_system(component::Player::setup)
     .add_startup_system(component::Camera::setup)
     .add_startup_system(component::Grass::setup)

@@ -5,11 +5,14 @@ struct VertexOutput {
   @location(2) uv: vec2<f32>,
 }
 
+struct MyMat {
+  color: vec4<f32>
+}
+
 @group(1) @binding(0)
-var<uniform> health: f32;
+var<uniform> color: MyMat;
 
 @fragment
 fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
-  var output_color = vec4<f32>(health, 0.0, 0.0, 1.0);
-  return output_color;
+  return color.color;
 }

@@ -7,7 +7,7 @@ use cell::*;
 pub mod wall;
 use rand::{seq::SliceRandom, thread_rng, Rng};
 pub mod room;
-use room::*;
+pub use room::*;
 
 static BUILDING_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -26,7 +26,7 @@ pub struct BuildingComponent {
   pub building: Arc<Building>,
 }
 
-const PROPERTY_WIDTH: f32 = 2000.;
+const PROPERTY_WIDTH: f32 = 200.;
 const PROPERTY_WIDTH_2: f32 = PROPERTY_WIDTH / 2.;
 const PROPERTY_HEIGHT: f32 = PROPERTY_WIDTH;
 const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;

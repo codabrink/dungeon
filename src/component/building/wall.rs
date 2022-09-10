@@ -2,6 +2,7 @@ use super::cell::CELL_SIZE;
 use crate::*;
 
 const WALL_W: f32 = 0.5;
+const WALL_W_2: f32 = WALL_W / 2.;
 pub const DOOR_W: f32 = 8.;
 pub const DOOR_W_2: f32 = DOOR_W / 2.;
 const WALL_H: f32 = CELL_SIZE / 2.;
@@ -46,7 +47,6 @@ impl Wall {
     child_builder: &mut ChildBuilder,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    // asset_server: &Res<AssetServer>,
   ) -> Option<Entity> {
     self._fabricate(child_builder.spawn(), meshes, materials)
   }
@@ -111,25 +111,26 @@ impl Wall {
         .spawn_bundle(PbrBundle {
           mesh: mesh.clone(),
           material: material.clone(),
-          transform: Transform::from_translation(Vec3::new(0., WALL_H_2, -(width / 2. + DOOR_W_2))),
+          transform: Transform::from_xyz(0., WALL_H_2, -(width / 2. + DOOR_W_2)),
           ..default()
         })
         .insert(collider.clone());
 
       // right side
-      child_builder
+      let right_wall = child_builder
         .spawn_bundle(PbrBundle {
           mesh,
-          transform: Transform::from_translation(Vec3::new(0., WALL_H_2, width / 2. + DOOR_W_2)),
+          transform: Transform::from_xyz(0., WALL_H_2, width / 2. + DOOR_W_2),
           material: material.clone(),
           ..default()
         })
-        .insert(collider);
+        .insert(collider)
+        .id();
 
       // above door
       child_builder.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(WALL_W, WALL_H_4, DOOR_W))),
-        transform: Transform::from_translation(Vec3::new(0., CELL_SIZE * (7. / 16.), 0.)),
+        transform: Transform::from_xyz(0., CELL_SIZE * (7. / 16.), 0.),
         material,
         ..default()
       });
@@ -140,10 +141,11 @@ impl Wall {
         WALL_H - WALL_H_4,
         FRAME_W,
       )));
+
       // right trim
       child_builder.spawn_bundle(PbrBundle {
         mesh: mesh.clone(),
-        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, DOOR_W_2)),
+        transform: Transform::from_xyz(0., WALL_H_2 - WALL_H_8, DOOR_W_2),
         material: material.clone(),
         ..default()
       });
@@ -151,7 +153,7 @@ impl Wall {
       // left trim
       child_builder.spawn_bundle(PbrBundle {
         mesh,
-        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 - WALL_H_8, -DOOR_W_2)),
+        transform: Transform::from_xyz(0., WALL_H_2 - WALL_H_8, -DOOR_W_2),
         material: material.clone(),
         ..default()
       });
@@ -163,10 +165,34 @@ impl Wall {
           FRAME_W,
           DOOR_W + FRAME_W,
         ))),
-        transform: Transform::from_translation(Vec3::new(0., WALL_H_2 + WALL_H_4, 0.)),
-        material,
+        transform: Transform::from_xyz(0., WALL_H_2 + WALL_H_4, 0.),
+        material: material.clone(),
         ..default()
       });
+
+      // door
+      // let axis = Vec3::X;
+      // let joint = RevoluteJointBuilder::new(axis)
+      // .local_anchor1(Vec3::new(0., 0., 1.))
+      // .local_anchor2(Vec3::new(0., 0., 1.));
+      // child_builder
+      // .spawn_bundle(PbrBundle {
+      // mesh: meshes.add(Mesh::from(shape::Box::new(
+      // WALL_W,
+      // WALL_H - WALL_H_4,
+      // DOOR_W,
+      // ))),
+      // material,
+      // transform: Transform::from_xyz(0., (WALL_H - WALL_H_4) / 2., 0.),
+      // ..default()
+      // })
+      // .insert(RigidBody::Dynamic)
+      // .insert(Collider::cuboid(
+      // WALL_W_2,
+      // (WALL_H - WALL_H_4) / 2.,
+      // DOOR_W_2,
+      // ))
+      // .insert(ImpulseJoint::new(right_wall, joint));
     })
     .id()
   }
@@ -181,6 +207,8 @@ impl Wall {
   fn brown_material() -> StandardMaterial {
     StandardMaterial {
       base_color: Color::rgb_u8(101, 67, 33),
+      // reflectance: 0.,
+      perceptual_roughness: 1.,
       ..default()
     }
   }

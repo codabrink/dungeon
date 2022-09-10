@@ -250,13 +250,7 @@ impl ArcCellExt for ArcCell {
     materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
   ) -> Entity {
-    let texture = asset_server.load("wood_floor.jpg");
-    let material = materials.add(StandardMaterial {
-      base_color_texture: Some(texture),
-      alpha_mode: AlphaMode::Blend,
-      unlit: false,
-      ..default()
-    });
+    let material = self.room.floor_mat();
 
     let translation = building.coord_to_pos_rel(&self.coord);
     let transform = Transform::from_translation(translation);

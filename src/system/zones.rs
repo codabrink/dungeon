@@ -1,5 +1,5 @@
 use crate::*;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+
 use lazy_static::lazy_static;
 
 const SIZE: f32 = 10000.;

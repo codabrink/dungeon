@@ -24,7 +24,7 @@ pub struct Zombie {
 #[uuid = "cc8705a9-9189-43e5-8a5b-c28b57bd6234"]
 pub struct ZombieMaterial {
   #[uniform(0)]
-  health: f32,
+  color: Color,
 }
 
 impl Material for ZombieMaterial {
@@ -35,7 +35,7 @@ impl Material for ZombieMaterial {
 
 #[derive(Clone, ShaderType)]
 struct ZombieMaterialUniformData {
-  health: f32,
+  color: Color,
 }
 
 #[derive(Component)]
@@ -59,13 +59,13 @@ impl Zombie {
       return None;
     }
 
-    let health = Health::default();
+    let health = Health::new(Color::rgb(1., 0., 0.));
 
     let id = commands
       .spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: SIZE })),
         material: materials.add(ZombieMaterial {
-          health: health.health,
+          color: Color::rgb(health.health(), 0., 0.),
         }),
         transform: Transform::from_xyz(pos.x, SIZE, pos.z),
         ..default()
@@ -106,10 +106,6 @@ impl Zombie {
     zones: Res<Zones>,
     mut query: Query<(&Transform, &mut ExternalForce, &mut Self), Without<Aggressive>>,
     player_query: Query<&Transform, With<Player>>,
-
-    commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<StandardMaterial>>,
   ) {
     let now = Instant::now();
     let player_transform = player_query.single();
@@ -151,8 +147,7 @@ impl Zombie {
     {
       zombie.stunned_until = Some(Instant::now() + Duration::from_secs(5));
       velocity.linvel = bullet_impact.force;
-      // external_force.force = bullet_impact.force;
-      health.health -= bullet_impact.damage;
+      health.damage(bullet_impact.damage);
 
       if health.is_dead() {
         commands.entity(entity).despawn_recursive();
@@ -165,17 +160,21 @@ impl Zombie {
 
   pub fn prepare_health(
     materials: Res<RenderMaterials<ZombieMaterial>>,
-    health_query: Query<(&Health, &Handle<ZombieMaterial>)>,
+    mut health_query: Query<(&mut Health, &Handle<ZombieMaterial>)>,
     render_queue: Res<RenderQueue>,
   ) {
-    for (health, handle) in &health_query {
+    for (mut health, handle) in &mut health_query {
+      if !health.reset_changed() {
+        continue;
+      }
+
       if let Some(material) = materials.get(handle) {
         for binding in material.bindings.iter() {
           if let OwnedBindingResource::Buffer(cur_buffer) = binding {
             let mut buffer = encase::UniformBuffer::new(Vec::new());
             buffer
               .write(&ZombieMaterialUniformData {
-                health: health.health,
+                color: health.color(),
               })
               .unwrap();
             render_queue.write_buffer(cur_buffer, 0, buffer.as_ref());
