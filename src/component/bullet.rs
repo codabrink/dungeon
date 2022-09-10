@@ -10,7 +10,7 @@ pub struct Bullet {
 }
 
 #[derive(Component)]
-pub struct BulletImpact {
+pub struct Impact {
   pub force: Vec3,
   pub damage: f32,
 }
@@ -30,9 +30,9 @@ impl Bullet {
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rapier_context: Res<RapierContext>,
-    query: Query<(&Transform, &Player), With<Player>>,
+    query: Query<(Entity, &Transform, &Player)>,
   ) {
-    let (t, player) = query.single();
+    let (player_entity, t, player) = query.single();
     let theta = player.angle;
 
     if !input.just_pressed(KeyCode::Space) && !mouse.just_pressed(MouseButton::Left) {
@@ -46,41 +46,19 @@ impl Bullet {
     let shape_pos = t.translation + direction * COLLISION_LENGTH_2;
     let shape_rot = Quat::from_axis_angle(Vec3::Y, theta);
 
-    // debug...
-    // commands
-    // .spawn()
-    // .insert(shape.clone())
-    // .insert_bundle(TransformBundle::from(
-    // Transform::from_translation(shape_pos.clone()).with_rotation(shape_rot.clone()),
-    // ));
-
     rapier_context.intersections_with_shape(
       shape_pos,
       shape_rot,
       &shape,
       QueryFilter::default(),
       |entity| {
-        commands.entity(entity).insert(BulletImpact {
-          force: direction * 500.,
+        commands.entity(entity).insert(Impact {
+          force: direction * 50.,
           damage: 0.4,
         });
         true
       },
     );
-
-    // rapier_context.intersections_with_ray(
-    // transform.translation,
-    // direction,
-    // 40.,
-    // true,
-    // QueryFilter::default(),
-    // |entity, intersection| {
-    // commands.entity(entity).insert(BulletImpact {
-    // force: direction * 40000. + Vec3::Y * 30000.,
-    // });
-    // true
-    // },
-    // );
 
     let mesh = Mesh::from(shape::Cube { size: RAD });
 

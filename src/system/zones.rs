@@ -48,6 +48,17 @@ impl Zones {
     self.zones.entry(Self::translation_to_coord(t)).or_default()
   }
 
+  pub fn cell_at(&self, t: &Vec3) -> Option<&Arc<Cell>> {
+    if let Some(zone) = self.zone(t) {
+      for building in &zone.buildings {
+        if let Some(cell) = building.pos_global_to_cell(t) {
+          return Some(cell);
+        }
+      }
+    }
+    None
+  }
+
   pub fn update(mut this: ResMut<Self>, query: Query<(Entity, &GlobalTransform)>) {
     if this.last_ran.elapsed() < WAIT {
       return;

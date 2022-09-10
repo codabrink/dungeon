@@ -4,6 +4,7 @@ pub use bevy::ecs::system::EntityCommands;
 pub use bevy::prelude::*;
 use bevy::{
   diagnostic::FrameTimeDiagnosticsPlugin,
+  ecs::query::WorldQuery,
   render::{RenderApp, RenderStage},
 };
 pub use bevy_rapier3d::prelude::*;
@@ -51,7 +52,8 @@ fn main() {
     .add_startup_system(component::DebugText::spawn)
     .add_system(component::Camera::follow_player)
     .add_system(component::Player::update)
-    .add_system(component::Zombie::update)
+    .add_system(component::Zombie::update_normal)
+    .add_system(component::Zombie::update_aggressive)
     .add_system(component::Zombie::update_impact)
     .add_system(component::Bullet::spawn)
     .add_system(component::Bullet::update)

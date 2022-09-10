@@ -16,6 +16,8 @@ impl Player {
   ) {
     let rad = 2.;
 
+    let collider = Collider::cuboid(rad / 2., rad / 2., rad / 2.);
+
     commands
       .spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: rad })),
@@ -42,7 +44,7 @@ impl Player {
         angular_damping: 1.,
       })
       // .insert(GravityScale(0.))
-      .insert(Collider::cuboid(rad / 2., rad / 2., rad / 2.))
+      .insert(collider)
       .insert(ColliderMassProperties::Density(6.))
       .insert(Restitution {
         coefficient: 0.,

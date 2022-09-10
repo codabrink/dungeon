@@ -11,7 +11,7 @@ pub use room::*;
 
 static BUILDING_ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Building {
   id: usize,
   pub cells: HashMap<Coord, Arc<Cell>>,
@@ -30,6 +30,14 @@ const PROPERTY_WIDTH: f32 = 200.;
 const PROPERTY_WIDTH_2: f32 = PROPERTY_WIDTH / 2.;
 const PROPERTY_HEIGHT: f32 = PROPERTY_WIDTH;
 const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;
+
+// super bad, I know.. but in this case, I think it's fine to break candor a bit
+unsafe fn idc_to_static_mut<'a, T>(r: &'a T) -> &'static mut T {
+  let ptr = r as *const T;
+  let mut_ref = ptr as *mut T;
+  let mut_ref = &mut *mut_ref;
+  std::mem::transmute::<&mut T, &'static mut T>(mut_ref)
+}
 
 impl Building {
   pub fn spawn(
@@ -54,6 +62,19 @@ impl Building {
     );
   }
 
+  fn new<'a>(origin: Transform, bounds: Option<Rect>) -> (Arc<Self>, &'a mut Self) {
+    let arc = Arc::new(Self {
+      id: BUILDING_ID.fetch_add(1, Ordering::SeqCst),
+      origin,
+      bounds,
+      ..default()
+    });
+    let building = unsafe { idc_to_static_mut(&*arc) };
+    building.seed_room(&arc, Coord { x: 0, z: 0 });
+
+    (arc, building)
+  }
+
   fn fabricate(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -63,9 +84,10 @@ impl Building {
     origin: Transform,
     bounds: Option<Rect>,
   ) -> Entity {
-    let mut building = Building::new(origin, bounds);
+    let (arc, building) = Building::new(origin, bounds);
+
     for _ in 0..40 {
-      building.seed_random_room();
+      building.seed_random_room(&arc);
     }
 
     building.join_rooms();
@@ -73,12 +95,11 @@ impl Building {
     building.gen_navigation();
     building.spawn_zombies(&mut commands, &mut meshes, &mut zombie_material);
 
-    let building = Arc::new(building);
     let building_component = BuildingComponent {
-      building: building.clone(),
+      building: arc.clone(),
     };
 
-    let _ = ZONE_TX.send(ZItem::Building(building.clone()));
+    let _ = ZONE_TX.send(ZItem::Building(arc.clone()));
 
     // DEBUG
     // building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
@@ -109,17 +130,6 @@ impl Building {
       .id()
   }
 
-  fn new(origin: Transform, bounds: Option<Rect>) -> Self {
-    let mut building = Self {
-      id: BUILDING_ID.fetch_add(1, Ordering::SeqCst),
-      origin,
-      bounds,
-      ..default()
-    };
-    building.seed_room(Coord { x: 0, z: 0 });
-    building
-  }
-
   fn fabricate_nav(
     &self,
     commands: &mut Commands,
@@ -142,8 +152,8 @@ impl Building {
     })
   }
 
-  fn seed_room(&mut self, coord: Coord) {
-    ArcRoom::create(self, coord);
+  fn seed_room(&mut self, arc: &Arc<Building>, coord: Coord) {
+    ArcRoom::create(self, arc, coord);
   }
 
   fn join_rooms(&self) {
@@ -178,13 +188,13 @@ impl Building {
     }
   }
 
-  fn seed_random_room(&mut self) {
+  fn seed_random_room(&mut self, arc: &Arc<Self>) {
     let coord = match self.outer().choose(&mut thread_rng()) {
       Some(coord) => *coord,
       _ => return,
     };
 
-    self.seed_room(coord);
+    self.seed_room(arc, coord);
   }
 
   pub fn coord_to_pos_rel(&self, coord: &Coord) -> Vec3 {
@@ -195,8 +205,8 @@ impl Building {
     self.origin.translation + self.coord_to_pos_rel(coord)
   }
 
-  pub fn pos_global_to_coord(&self, pos: Vec3) -> Coord {
-    let pos = pos - self.origin.translation;
+  pub fn pos_global_to_coord(&self, pos: &Vec3) -> Coord {
+    let pos = *pos - self.origin.translation;
     let z_neg = (pos.z < 0.) as i16 * -2 + 1;
     let x_neg = (pos.x < 0.) as i16 * -2 + 1;
     Coord {
@@ -205,7 +215,7 @@ impl Building {
     }
   }
 
-  pub fn pos_global_to_cell(&self, pos: Vec3) -> Option<&Arc<Cell>> {
+  pub fn pos_global_to_cell(&self, pos: &Vec3) -> Option<&Arc<Cell>> {
     self.cells.get(&self.pos_global_to_coord(pos))
   }
 

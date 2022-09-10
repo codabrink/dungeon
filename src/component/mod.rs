@@ -6,13 +6,13 @@ pub mod grass;
 pub use grass::Grass;
 pub mod building;
 pub use building::{
-  cell::{CELL_SIZE, CELL_SIZE_2},
+  cell::{Cell, CELL_SIZE, CELL_SIZE_2},
   room::{self, Room},
   wall::{self, Wall},
   Building, Coord,
 };
 pub mod bullet;
-pub use bullet::{Bullet, BulletImpact};
+pub use bullet::*;
 pub mod entities;
 pub use entities::ENTITIES;
 pub mod road;

@@ -41,6 +41,7 @@ const WALL_NAV: [Vec3; 4] = [
 #[derive(Debug)]
 pub struct Cell {
   pub room: Arc<Room>,
+  pub building: Arc<Building>,
   pub coord: Coord,
   pub wall_state: RwLock<[wall::State; 4]>,
   pub walls: RwLock<[Option<Entity>; 4]>,
@@ -54,7 +55,12 @@ pub struct CellComponent {
 }
 
 impl Cell {
-  pub fn new(coord: Coord, room: Arc<Room>, building: &mut Building) -> Arc<Self> {
+  pub fn new(
+    coord: Coord,
+    room: Arc<Room>,
+    building: &mut Building,
+    arc_building: &Arc<Building>,
+  ) -> Arc<Self> {
     let cell = Arc::new(Self {
       coord,
       room,
@@ -62,6 +68,7 @@ impl Cell {
       walls: RwLock::default(),
       nav_nodes: RwLock::default(),
       pos: building.coord_to_pos_global(&coord),
+      building: arc_building.clone(),
     });
 
     building.cells.insert(coord, cell.clone());
@@ -98,6 +105,10 @@ impl Cell {
     pos.z += rng.gen_range(-CELL_SIZE_2..CELL_SIZE_2);
     pos.x += rng.gen_range(-CELL_SIZE_2..CELL_SIZE_2);
     pos
+  }
+
+  pub fn nav_node(&self) -> Arc<NavNode> {
+    self.nav_nodes.read()[4].as_ref().unwrap().clone()
   }
 
   pub fn create_door(&self, other: &Cell, cardinal_dir: usize) {

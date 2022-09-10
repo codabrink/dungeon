@@ -88,7 +88,7 @@ impl Room {
 
 pub type ArcRoom = Arc<Room>;
 pub trait ArcRoomExt {
-  fn create(building: &mut Building, start_coord: Coord) -> Self;
+  fn create(building: &mut Building, arc_building: &Arc<Building>, start_coord: Coord) -> Self;
   fn join_rooms(&self, building: &Building);
 }
 
@@ -116,7 +116,7 @@ impl ArcRoomExt for ArcRoom {
     }
   }
 
-  fn create(building: &mut Building, start_coord: Coord) -> Self {
+  fn create(building: &mut Building, arc_building: &Arc<Building>, start_coord: Coord) -> Self {
     let room = Arc::new(Room::default());
 
     while room.len() < room.size {
@@ -139,7 +139,7 @@ impl ArcRoomExt for ArcRoom {
         }
       };
 
-      Cell::new(coord, room.clone(), building);
+      Cell::new(coord, room.clone(), building, arc_building);
     }
 
     for coord in &*room.cells.read() {

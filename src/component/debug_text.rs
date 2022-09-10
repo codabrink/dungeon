@@ -51,7 +51,7 @@ impl DebugText {
 
     if let Some(zone) = zones.zone(&pt.translation) {
       for building in &zone.buildings {
-        if let Some(cell) = building.pos_global_to_cell(pt.translation) {
+        if let Some(cell) = building.pos_global_to_cell(&pt.translation) {
           text.sections[0].value =
             format!("Coord: {},{}\nFPS: {:.2}", cell.coord.z, cell.coord.x, fps);
           return;
