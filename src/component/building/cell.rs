@@ -55,12 +55,7 @@ pub struct CellComponent {
 }
 
 impl Cell {
-  pub fn new(
-    coord: Coord,
-    room: Arc<Room>,
-    building: &mut Building,
-    arc_building: &Arc<Building>,
-  ) -> Arc<Self> {
+  pub fn new(coord: Coord, room: Arc<Room>, building: &mut Building) -> Arc<Self> {
     let cell = Arc::new(Self {
       coord,
       room,
@@ -68,7 +63,7 @@ impl Cell {
       walls: RwLock::default(),
       nav_nodes: RwLock::default(),
       pos: building.coord_to_pos_global(&coord),
-      building: arc_building.clone(),
+      building: building.arc(),
     });
 
     building.cells.insert(coord, cell.clone());

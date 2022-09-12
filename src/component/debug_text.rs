@@ -38,6 +38,9 @@ impl DebugText {
     player_query: Query<&Transform, With<Player>>,
     diagnostics: Res<Diagnostics>,
   ) {
+    if player_query.is_empty() {
+      return;
+    }
     let mut text = query.single_mut();
     let pt = player_query.single();
 

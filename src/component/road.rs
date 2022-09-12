@@ -168,7 +168,7 @@ impl RoadGrid {
     mut materials: ResMut<Assets<StandardMaterial>>,
     ass: Res<AssetServer>,
   ) {
-    if grid.last_ran.elapsed() < WAIT {
+    if grid.last_ran.elapsed() < WAIT || query.is_empty() {
       return;
     }
 

@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+  hash::{Hash, Hasher},
+  sync::Arc,
+};
 
 use crate::*;
 
@@ -11,7 +14,7 @@ pub use room::*;
 
 static BUILDING_ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Building {
   id: usize,
   pub cells: HashMap<Coord, Arc<Cell>>,
@@ -19,6 +22,7 @@ pub struct Building {
   bounds: Option<Rect>,
   pub origin: Transform,
   pub navigated: AtomicBool,
+  arc: Box<Arc<Self>>,
 }
 
 #[derive(Component)]
@@ -31,7 +35,7 @@ const PROPERTY_WIDTH_2: f32 = PROPERTY_WIDTH / 2.;
 const PROPERTY_HEIGHT: f32 = PROPERTY_WIDTH;
 const PROPERTY_HEIGHT_2: f32 = PROPERTY_HEIGHT / 2.;
 
-// super bad, I know.. but in this case, I think it's fine to break candor a bit
+// children, avert your eyes...
 unsafe fn idc_to_static_mut<'a, T>(r: &'a T) -> &'static mut T {
   let ptr = r as *const T;
   let mut_ref = ptr as *mut T;
@@ -67,12 +71,28 @@ impl Building {
       id: BUILDING_ID.fetch_add(1, Ordering::SeqCst),
       origin,
       bounds,
-      ..default()
+      cells: HashMap::new(),
+      rooms: HashMap::new(),
+      navigated: AtomicBool::new(false),
+
+      #[allow(invalid_value)]
+      arc: unsafe { std::mem::MaybeUninit::zeroed().assume_init() },
     });
+
+    // do a whole bunch of terrible unsafe things...
     let building = unsafe { idc_to_static_mut(&*arc) };
-    building.seed_room(&arc, Coord { x: 0, z: 0 });
+    let bad_arc = std::mem::replace(&mut building.arc, Box::new(arc.clone()));
+    // Do not do cleanup on this "arc" - it is not an arc
+    std::mem::forget(bad_arc);
+
+    // done with filthiness... Father, forgive me of my sins
+    building.seed_room(Coord { x: 0, z: 0 });
 
     (arc, building)
+  }
+
+  fn arc(&self) -> Arc<Self> {
+    self.arc.as_ref().clone()
   }
 
   fn fabricate(
@@ -102,7 +122,7 @@ impl Building {
     let _ = ZONE_TX.send(ZItem::Building(arc.clone()));
 
     // DEBUG
-    // building.fabricate_nav(&mut commands, &mut meshes, &mut materials);
+    // building.debug_fabricate_nav(&mut commands, &mut meshes, &mut materials);
     // DEBUG
     for _ in 0..0 {
       ENTITIES
@@ -130,7 +150,8 @@ impl Building {
       .id()
   }
 
-  fn fabricate_nav(
+  #[allow(unused)]
+  fn debug_fabricate_nav(
     &self,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -152,8 +173,8 @@ impl Building {
     })
   }
 
-  fn seed_room(&mut self, arc: &Arc<Building>, coord: Coord) {
-    ArcRoom::create(self, arc, coord);
+  fn seed_room(&mut self, coord: Coord) {
+    ArcRoom::create(self, coord);
   }
 
   fn join_rooms(&self) {
@@ -194,7 +215,7 @@ impl Building {
       _ => return,
     };
 
-    self.seed_room(arc, coord);
+    self.seed_room(coord);
   }
 
   pub fn coord_to_pos_rel(&self, coord: &Coord) -> Vec3 {

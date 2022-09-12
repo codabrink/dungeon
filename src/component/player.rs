@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
+use crate::*;
 
 mod flashlight;
 
@@ -17,6 +16,7 @@ impl Player {
     let rad = 2.;
 
     let collider = Collider::cuboid(rad / 2., rad / 2., rad / 2.);
+    let health = Health::new(Color::rgb(0., 1., 0.));
 
     commands
       .spawn_bundle(PbrBundle {
@@ -43,6 +43,7 @@ impl Player {
         linear_damping: 10.,
         angular_damping: 1.,
       })
+      .insert(health)
       // .insert(GravityScale(0.))
       .insert(collider)
       .insert(ColliderMassProperties::Density(6.))
@@ -60,6 +61,9 @@ impl Player {
   ) {
     if input.pressed(KeyCode::Q) {
       std::process::exit(1);
+    }
+    if query.is_empty() {
+      return;
     }
 
     let (_vel, mut force, mut pos, mut player) = query.single_mut();

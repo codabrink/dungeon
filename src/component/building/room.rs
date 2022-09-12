@@ -18,6 +18,7 @@ pub struct Room {
   pub id: usize,
   pub cells: RwLock<HashSet<Coord>>,
   pub connected_to: RwLock<HashSet<usize>>,
+  building: Arc<Building>,
   size: usize,
   r#type: RoomType,
 }
@@ -37,19 +38,18 @@ impl Distribution<RoomType> for Standard {
   }
 }
 
-impl Default for Room {
-  fn default() -> Self {
-    Self {
+impl Room {
+  fn new(building: Arc<Building>) -> Arc<Self> {
+    Arc::new(Self {
       id: ROOM_COUNT.fetch_add(1, Ordering::SeqCst),
       cells: RwLock::default(),
       connected_to: RwLock::default(),
       size: thread_rng().gen_range(0..MAX_SIZE) + 2,
       r#type: rand::random(),
-    }
+      building: building,
+    })
   }
-}
 
-impl Room {
   fn len(&self) -> usize {
     self.cells.read().len()
   }
@@ -88,7 +88,7 @@ impl Room {
 
 pub type ArcRoom = Arc<Room>;
 pub trait ArcRoomExt {
-  fn create(building: &mut Building, arc_building: &Arc<Building>, start_coord: Coord) -> Self;
+  fn create(building: &mut Building, start_coord: Coord) -> Self;
   fn join_rooms(&self, building: &Building);
 }
 
@@ -116,8 +116,8 @@ impl ArcRoomExt for ArcRoom {
     }
   }
 
-  fn create(building: &mut Building, arc_building: &Arc<Building>, start_coord: Coord) -> Self {
-    let room = Arc::new(Room::default());
+  fn create(building: &mut Building, start_coord: Coord) -> Self {
+    let room = Room::new(building.arc());
 
     while room.len() < room.size {
       // get empty adj coords
@@ -139,7 +139,7 @@ impl ArcRoomExt for ArcRoom {
         }
       };
 
-      Cell::new(coord, room.clone(), building, arc_building);
+      Cell::new(coord, room.clone(), building);
     }
 
     for coord in &*room.cells.read() {

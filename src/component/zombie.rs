@@ -8,7 +8,7 @@ use bevy::{
     Extract,
   },
 };
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 
 #[derive(Component)]
 pub struct Zombie {
@@ -16,6 +16,7 @@ pub struct Zombie {
   nav: Vec<Arc<NavNode>>,
   debug_square: Option<Entity>,
   nav_timeout: Instant,
+  achievement_timeout: Instant,
   stunned_until: Option<Instant>,
 }
 
@@ -78,12 +79,14 @@ impl Zombie {
       })
       .insert(Velocity::default())
       .insert(health)
+      .insert(Aggressive)
       .insert(Zombie {
         dest: pos,
         nav: vec![],
         debug_square: None,
         stunned_until: None,
         nav_timeout: Instant::now(),
+        achievement_timeout: Instant::now() + NAV_TIMEOUT,
       })
       .id();
 
@@ -106,10 +109,7 @@ impl Zombie {
     player_query: Query<&Transform, With<Player>>,
   ) {
     for (t, mut ef, mut z) in &mut query {
-      if let Some(dest) = z.wander(t) {
-        z.dest = dest;
-      }
-      z.travel(t);
+      z.travel(t, &mut ef, &zones);
     }
   }
 
@@ -119,6 +119,9 @@ impl Zombie {
     player_query: Query<&Transform, With<Player>>,
   ) {
     let now = Instant::now();
+    if player_query.is_empty() {
+      return;
+    }
     let player_transform = player_query.single();
 
     for (t, mut ef, mut z) in &mut query {
@@ -132,26 +135,17 @@ impl Zombie {
       }
 
       z.create_path_to_player(t, player_transform, &zones);
-      z.travel(t);
+      z.travel(t, &mut ef, &zones);
     }
   }
 
   pub fn update_impact(
     mut commands: Commands,
-    mut query: Query<(
-      Entity,
-      &mut Zombie,
-      &mut Velocity,
-      &Impact,
-      &mut Health,
-      &Handle<ZombieMaterial>,
-    )>,
+    mut query: Query<(Entity, &mut Velocity, &Impact, &mut Health)>,
   ) {
-    for (entity, mut zombie, mut velocity, bullet_impact, mut health, material) in query.iter_mut()
-    {
-      zombie.stunned_until = Some(Instant::now() + Duration::from_secs(5));
-      velocity.linvel = bullet_impact.force;
-      health.damage(bullet_impact.damage);
+    for (entity, mut velocity, impact, mut health) in query.iter_mut() {
+      velocity.linvel = impact.force;
+      health.damage(impact.damage);
 
       if health.is_dead() {
         commands.entity(entity).despawn_recursive();
@@ -200,19 +194,27 @@ impl Zombie {
     }
   }
 
-  fn wander(&self, t: &Transform) -> Option<Vec3> {
+  fn wander(&mut self, t: &Transform, zones: &Res<Zones>) {
     if self.nav_timeout > Instant::now() {
-      return None;
+      return;
     }
+    self.reset_timer();
 
-    None
+    if let Some(cell) = zones.cell_at(&t.translation) {
+      self.dest = cell.random_pos();
+    } else {
+      let mut rng = thread_rng();
+      let var = 10.;
+      self.dest = t.translation + Vec3::new(rng.gen_range(-var..var), 0., rng.gen_range(-var..var));
+    }
   }
 
   fn reset_timer(&mut self) {
-    self.nav_timeout = Instant::now() + NAV_TIMEOUT;
+    self.nav_timeout =
+      Instant::now() + Duration::from_millis(rand::thread_rng().gen_range(0..3000));
   }
 
-  fn travel(&mut self, t: &Transform) {
+  fn travel(&mut self, t: &Transform, ef: &mut ExternalForce, zones: &Res<Zones>) {
     if let Some(dest) = self.nav.last() {
       if dest.area.contains(&t.translation) {
         self.nav.pop();
@@ -224,19 +226,17 @@ impl Zombie {
         return;
       }
     } else if self.nav.is_empty() {
-      if let Some(dest) = self.wander(t) {
-        self.dest = dest;
-        self.reset_timer();
-      }
+      self.wander(t, zones);
     }
+
+    ef.force = (self.dest - t.translation).normalize() * 6000.;
   }
 
   fn create_path_to_player(&mut self, t: &Transform, pt: &Transform, zones: &Res<Zones>) {
-    if !self.nav.is_empty() && self.nav_timeout > Instant::now() {
+    if self.nav_timeout > Instant::now() {
       return;
     }
-
-    let mut rng = thread_rng();
+    self.reset_timer();
 
     if let Some(zombie_cell) = zones.cell_at(&t.translation) {
       // check if player is in same building
@@ -245,7 +245,10 @@ impl Zombie {
         nav.nav();
         nav.path.reverse();
         self.nav = nav.path;
+        return;
       }
     }
+
+    self.nav.clear();
   }
 }

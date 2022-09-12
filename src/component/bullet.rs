@@ -32,6 +32,10 @@ impl Bullet {
     rapier_context: Res<RapierContext>,
     query: Query<(Entity, &Transform, &Player)>,
   ) {
+    if query.is_empty() {
+      return;
+    }
+
     let (player_entity, t, player) = query.single();
     let theta = player.angle;
 
@@ -46,11 +50,16 @@ impl Bullet {
     let shape_pos = t.translation + direction * COLLISION_LENGTH_2;
     let shape_rot = Quat::from_axis_angle(Vec3::Y, theta);
 
+    commands.entity(player_entity).insert(Impact {
+      force: direction * -20.,
+      damage: 0.,
+    });
+
     rapier_context.intersections_with_shape(
       shape_pos,
       shape_rot,
       &shape,
-      QueryFilter::default(),
+      QueryFilter::default().exclude_collider(player_entity),
       |entity| {
         commands.entity(entity).insert(Impact {
           force: direction * 50.,

@@ -21,6 +21,10 @@ impl Camera {
     player_transform: Query<&Transform, (With<Player>, Without<Camera>)>,
     mut camera_transform: Query<(&mut Camera, &mut Transform), (With<Camera>, Without<Player>)>,
   ) {
+    if player_transform.is_empty() {
+      return;
+    }
+
     let player_transform = player_transform.single();
     let (mut camera, mut camera_transform) = camera_transform.single_mut();
 
